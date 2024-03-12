@@ -13,16 +13,19 @@ namespace AKG_1
         private static string _modelPath = "E:/bolt.obj";
         private static bool _shouldDraw;
         private static Bitmap _bitmap;
-        private static Pen whitePen = new Pen(Color.White);
-        private static readonly Pen redPen = new Pen(Color.Red);
+        private static readonly Color SelectedColor = Color.Red;
+
+        private static Vector2 _moving = Vector2.Zero;
+        private static readonly Vector2 MovingX = new Vector2(10, 0);
+        private static readonly Vector2 MovingY = new Vector2(0, 10);
 
         private static Vector4[] _vArr;
-        private static Vector3[] _vnArr;
+        private static Vector4[] _modelVArr;
+
         private static Vector4[] _updateVArr;
-        private static Vector3[] _updateVnArr;
         private static int[][] _fArr;
-        private static int[][] _vnToFArr;
-        private static float[][] zBuffer;
+
+        private static float[][] _zBuffer;
 
         public Form1()
         {
@@ -31,22 +34,22 @@ namespace AKG_1
             MakeResizing(this);
         }
 
-        private static void remakeZBuffer()
+        private static void RemakeZBuffer()
         {
-            zBuffer = new float[_size.Width][];
+            _zBuffer = new float[_size.Width][];
             for (var i = 0; i < _size.Width; i++)
             {
-                zBuffer[i] = new float[_size.Height];
+                _zBuffer[i] = new float[_size.Height];
             }
         }
 
-        private static void cleanZBuffer()
+        private static void CleanZBuffer()
         {
             for (var i = 0; i < _size.Width; i++)
             {
                 for (var j = 0; j < _size.Height; j++)
                 {
-                    zBuffer[i][j] = 10000.0f;
+                    _zBuffer[i][j] = 10000.0f;
                 }
             }
         }
@@ -54,11 +57,12 @@ namespace AKG_1
         private static void MakeResizing(Form1 form1)
         {
             Service.CameraViewSize = _size = form1.ClientSize;
+            Service.CameraView = Service.CameraViewSize.Width / (float)Service.CameraViewSize.Height;
             form1.lbHeight.Text = _size.Height.ToString();
             form1.lbWidth.Text = _size.Width.ToString();
             form1.pictureBox1.Size = _size;
             _bitmap = new Bitmap(_size.Width, _size.Height);
-            remakeZBuffer();
+            RemakeZBuffer();
 
             if (_shouldDraw)
             {
@@ -83,20 +87,15 @@ namespace AKG_1
                     ObjParser parser = new ObjParser(_modelPath);
                     Service.UpdateMatrix();
                     _vArr = parser.VList.ToArray();
-                    _vnArr = parser.VNList.ToArray();
                     _updateVArr = new Vector4[_vArr.Length];
-                    _updateVnArr = new Vector3[_vnArr.Length];
-
+                    _modelVArr = new Vector4[_vArr.Length];
                     _fArr = new int[parser.FList.Count][];
+
+                    Service.VNormals = new Vector3[_fArr.Length];
+
                     for (var i = 0; i < parser.FList.Count; i++)
                     {
                         _fArr[i] = parser.FList[i].ToArray();
-                    }
-
-                    _vnToFArr = new int[parser.VNtoFList.Count][];
-                    for (var i = 0; i < parser.VNtoFList.Count; i++)
-                    {
-                        _vnToFArr[i] = parser.VNtoFList[i].ToArray();
                     }
 
                     pictureBox1.Invalidate();
@@ -111,8 +110,8 @@ namespace AKG_1
         private static void VertexesUpdate()
         {
             Service.UpdateMatrix();
-            Service.TranslatePositions(_vArr, _updateVArr, _vnArr, _updateVnArr);
-            cleanZBuffer();
+            Service.TranslatePositions(_vArr, _updateVArr, _fArr, _modelVArr);
+            CleanZBuffer();
             DrawPoints();
         }
 
@@ -134,7 +133,7 @@ namespace AKG_1
             }
         }
 
-        public static unsafe void DrawingFullGrid(BitmapData bData, byte bitsPerPixel, byte* scan0, Pen pen)
+        public static unsafe void DrawingFullGrid(BitmapData bData, byte bitsPerPixel, byte* scan0, Color clr)
         {
             foreach (var polygon in _fArr)
             {
@@ -146,7 +145,7 @@ namespace AKG_1
                     PointF point1 = new PointF(_updateVArr[index1 - 1].X, _updateVArr[index1 - 1].Y);
                     PointF point2 = new PointF(_updateVArr[index2 - 1].X, _updateVArr[index2 - 1].Y);
                     var zZ = (_updateVArr[index1 - 1].Z + _updateVArr[index2 - 1].Z) / 2;
-                    DrawLineBresenham(bData, bitsPerPixel, scan0, pen, point1, point2, zZ);
+                    DrawLineBresenham(bData, bitsPerPixel, scan0, clr, point1, point2, zZ);
                 }
 
                 var lastIndex = polygon[polygon.Length - 1];
@@ -154,56 +153,61 @@ namespace AKG_1
                 PointF lastPoint = new PointF(_updateVArr[lastIndex - 1].X, _updateVArr[lastIndex - 1].Y);
                 PointF firstPoint = new PointF(_updateVArr[firstIndex - 1].X, _updateVArr[firstIndex - 1].Y);
                 var z = (_updateVArr[lastIndex - 1].Z + _updateVArr[firstIndex - 1].Z) / 2;
-                DrawLineBresenham(bData, bitsPerPixel, scan0, pen, lastPoint, firstPoint, z);
+                DrawLineBresenham(bData, bitsPerPixel, scan0, clr, lastPoint, firstPoint, z);
             }
         }
 
-        public static unsafe void RastTriangles(BitmapData bData, byte bitsPerPixel, byte* scan0, Pen pen)
+        private static unsafe void RastTriangles(BitmapData bData, byte bitsPerPixel, byte* scan0, Color clr)
         {
             for (var j = 0; j < _fArr.Length; j++)
             {
-                var indexes = _fArr[j];
-                var vnIndexes = _vnToFArr[j];
+                var temp = _modelVArr[_fArr[j][0] - 1];
+                Vector3 n = new Vector3(temp.X, temp.Y, temp.Z);
 
-                Vector4 f1 = _updateVArr[indexes[0] - 1];
-                Vector3 n1 = _updateVnArr[vnIndexes[0] - 1];
-                for (var i = 1; i <= indexes.Length - 2; i++)
+                if (Vector3.Dot(Service.VNormals[j], Service.Camera - n) > 0)
                 {
-                    Vector4 f2 = _updateVArr[indexes[i] - 1];
-                    Vector4 f3 = _updateVArr[indexes[i + 1] - 1];
+                    var intencity = Math.Abs(Vector3.Dot(Service.VNormals[j],
+                        Vector3.Normalize(-Service.LambertLight)));
 
-                    Vector3 n2 = _updateVnArr[vnIndexes[i] - 1];
-                    Vector3 n3 = _updateVnArr[vnIndexes[i + 1] - 1];
+                    Color nC = Color.FromArgb((int)(clr.R * intencity), (int)(clr.G * intencity),
+                        (int)(clr.B * intencity));
 
-                    // Определение минимальных и максимальных значений x и y для трех точек
-                    var minX = Math.Min(f1.X, Math.Min(f2.X, f3.X));
-                    var maxX = Math.Max(f1.X, Math.Max(f2.X, f3.X));
-                    var minY = Math.Min(f1.Y, Math.Min(f2.Y, f3.Y));
-                    var maxY = Math.Max(f1.Y, Math.Max(f2.Y, f3.Y));
+                    var indexes = _fArr[j];
 
-                    // Округление значений x и y до ближайших целых чисел
-                    var startX = (int)Math.Ceiling(minX);
-                    var endX = (int)Math.Floor(maxX);
-                    var startY = (int)Math.Ceiling(minY);
-                    var endY = (int)Math.Floor(maxY);
+                    Vector4 f1 = _updateVArr[indexes[0] - 1];
 
-                    
-                    // Перебор всех точек внутри ограничивающего прямоугольника
-                    for (var y = startY; y <= endY; y++)
+                    for (var i = 1; i <= indexes.Length - 2; i++)
                     {
-                        for (var x = startX; x <= endX; x++)
+                        Vector4 f2 = _updateVArr[indexes[i] - 1];
+                        Vector4 f3 = _updateVArr[indexes[i + 1] - 1];
+
+
+                        // Определение минимальных и максимальных значений x и y для трех точек
+                        var minX = Math.Min(f1.X, Math.Min(f2.X, f3.X));
+                        var maxX = Math.Max(f1.X, Math.Max(f2.X, f3.X));
+                        var minY = Math.Min(f1.Y, Math.Min(f2.Y, f3.Y));
+                        var maxY = Math.Max(f1.Y, Math.Max(f2.Y, f3.Y));
+
+                        // Округление значений x и y до ближайших целых чисел
+                        var startX = (int)Math.Ceiling(minX);
+                        var endX = (int)Math.Floor(maxX);
+                        var startY = (int)Math.Ceiling(minY);
+                        var endY = (int)Math.Floor(maxY);
+                        // Перебор всех точек внутри ограничивающего прямоугольника
+                        for (var y = startY; y <= endY; y++)
                         {
-                            // Проверка, принадлежит ли точка треугольнику
-                            if (IsPointInTriangle(x, y, f1, f2, f3))
+                            for (var x = startX; x <= endX; x++)
                             {
-                                Vector4 barycentricCoords = CalculateBarycentricCoordinates(x, y, f1, f2, f3);
-                                Vector3 interpolatedNormal = barycentricCoords.X * n1 + barycentricCoords.Y * n2 +
-                                                             barycentricCoords.Z * n3;
-                                interpolatedNormal = Vector3.Normalize(interpolatedNormal);
-                                // Расчет значения z с использованием барицентрических координат
-                                var z = barycentricCoords.X * f1.Z + barycentricCoords.Y * f2.Z +
-                                        barycentricCoords.Z * f3.Z;
-                                DrawPoint(bData, bitsPerPixel, scan0, redPen, x, y, z, interpolatedNormal);
+                                // Проверка, принадлежит ли точка треугольнику
+                                if (IsPointInTriangle(x, y, f1, f2, f3))
+                                {
+                                    Vector4 barycentricCoords = CalculateBarycentricCoordinates(x, y, f1, f2, f3);
+                                    // Расчет значения z с использованием барицентрических координат
+                                    var z = barycentricCoords.X * f1.Z + barycentricCoords.Y * f2.Z +
+                                            barycentricCoords.Z * f3.Z;
+                                    //DrawPoint(bData, bitsPerPixel, scan0, new Pen(nC), x, y, z, interpolatedNormal);
+                                    DrawPoint(bData, bitsPerPixel, scan0, nC, x + _moving.X, y + _moving.Y, z);
+                                }
                             }
                         }
                     }
@@ -212,7 +216,7 @@ namespace AKG_1
         }
 
         // Функция для расчета барицентрических координат
-        public static Vector4 CalculateBarycentricCoordinates(int x, int y, Vector4 v1, Vector4 v2, Vector4 v3)
+        private static Vector4 CalculateBarycentricCoordinates(int x, int y, Vector4 v1, Vector4 v2, Vector4 v3)
         {
             var alpha = ((v2.Y - v3.Y) * (x - v3.X) + (v3.X - v2.X) * (y - v3.Y)) /
                         ((v2.Y - v3.Y) * (v1.X - v3.X) + (v3.X - v2.X) * (v1.Y - v3.Y));
@@ -239,7 +243,7 @@ namespace AKG_1
         {
             using (Graphics g = Graphics.FromImage(_bitmap))
             {
-                g.Clear(Color.Black);
+                g.Clear(Color.White);
             }
 
             BitmapData bData = _bitmap.LockBits(new Rectangle(0, 0, _bitmap.Width, _bitmap.Height),
@@ -247,56 +251,33 @@ namespace AKG_1
             var bitsPerPixel = (byte)Image.GetPixelFormatSize(bData.PixelFormat);
             var scan0 = (byte*)bData.Scan0;
             //DrawingFullGrid(bData, bitsPerPixel, scan0, whitePen);
-            RastTriangles(bData, bitsPerPixel, scan0, redPen);
+            RastTriangles(bData, bitsPerPixel, scan0, SelectedColor);
             _bitmap.UnlockBits(bData);
+
         }
 
-        private static unsafe void DrawPoint(BitmapData bData, byte bitsPerPixel, byte* scan0, Pen pen, float x,
-            float y,
-            float z, Vector3 normal)
-        {
-            var iX = (int)Math.Round(x);
-            var iY = (int)Math.Round(y);
-            if (x > 0 && x + 1 < _bitmap.Width && y > 0 && y + 1 < _bitmap.Height && zBuffer[iX][iY] > z)
-            {
-                zBuffer[iX][iY] = z;
-
-                var intensity = Math.Max(Vector3.Dot(normal, Service.lambertLight), 0);
-
-                var data = scan0 + iY * bData.Stride + iX * bitsPerPixel / 8;
-                if (data != null)
-                {
-                    // Примените интенсивность освещения к цвету пикселя
-                    var colorIntensity = (byte)(intensity * 255);
-                    data[0] = (byte)(pen.Color.B * colorIntensity / 255);
-                    data[1] = (byte)(pen.Color.G * colorIntensity / 255);
-                    data[2] = (byte)(pen.Color.R * colorIntensity / 255);
-                }
-            }
-        }
-
-        private static unsafe void DrawPoint(BitmapData bData, byte bitsPerPixel, byte* scan0, Pen pen, float x,
+        private static unsafe void DrawPoint(BitmapData bData, byte bitsPerPixel, byte* scan0, Color cl, float x,
             float y,
             float z)
         {
             var iX = (int)Math.Round(x);
             var iY = (int)Math.Round(y);
-            if (x > 0 && x + 1 < _bitmap.Width && y > 0 && y + 1 < _bitmap.Height && zBuffer[iX][iY] > z)
+            if (x > 0 && x + 1 < _bitmap.Width && y > 0 && y + 1 < _bitmap.Height && _zBuffer[iX][iY] > z)
             {
-                zBuffer[iX][iY] = z;
+                _zBuffer[iX][iY] = z;
 
                 var data = scan0 + iY * bData.Stride + iX * bitsPerPixel / 8;
                 if (data != null)
                 {
                     // Примените интенсивность освещения к цвету пикселя
-                    data[0] = pen.Color.B;
-                    data[1] = pen.Color.G;
-                    data[2] = pen.Color.R;
+                    data[0] = cl.B;
+                    data[1] = cl.G;
+                    data[2] = cl.R;
                 }
             }
         }
 
-        private static unsafe void DrawLineBresenham(BitmapData bData, byte bitsPerPixel, byte* scan0, Pen pen,
+        private static unsafe void DrawLineBresenham(BitmapData bData, byte bitsPerPixel, byte* scan0, Color clr,
             PointF point1,
             PointF point2, float z)
         {
@@ -313,7 +294,7 @@ namespace AKG_1
 
             while (true)
             {
-                DrawPoint(bData, bitsPerPixel, scan0, pen, x0, y0, z);
+                DrawPoint(bData, bitsPerPixel, scan0, clr, x0, y0, z);
 
                 if (x0 == x1 && y0 == y1)
                     break;
@@ -337,26 +318,49 @@ namespace AKG_1
             if (_shouldDraw)
             {
                 const float angel = (float)Math.PI / 15.0f;
-                switch (e.KeyCode)
+                if (e.Control)
                 {
-                    case Keys.Left:
-                        Translations.Transform(_vArr, Matrix4x4.CreateRotationX(angel));
-                        break;
-                    case Keys.Right:
-                        Translations.Transform(_vArr, Matrix4x4.CreateRotationX(-angel));
-                        break;
-                    case Keys.Up:
-                        Translations.Transform(_vArr, Matrix4x4.CreateRotationY(angel));
-                        break;
-                    case Keys.Down:
-                        Translations.Transform(_vArr, Matrix4x4.CreateRotationY(-angel));
-                        break;
-                    case Keys.A:
-                        Translations.Transform(_vArr, Matrix4x4.CreateRotationZ(angel));
-                        break;
-                    case Keys.D:
-                        Translations.Transform(_vArr, Matrix4x4.CreateRotationZ(-angel));
-                        break;
+                    switch (e.KeyCode)
+                    {
+                        case Keys.Left:
+                            _moving -= MovingX;
+                            break;
+                        case Keys.Right:
+                            _moving += MovingX;
+                            break;
+                        case Keys.Up:
+                            _moving -= MovingY;
+                            break;
+                        case Keys.Down:
+                            _moving += MovingY;
+                            break;
+                    }
+
+                }
+                else
+                {
+                    switch (e.KeyCode)
+                    {
+                        case Keys.Left:
+                            Translations.Transform(_vArr, Matrix4x4.CreateRotationX(angel));
+                            break;
+                        case Keys.Right:
+                            Translations.Transform(_vArr, Matrix4x4.CreateRotationX(-angel));
+                            break;
+                        case Keys.Up:
+                            Translations.Transform(_vArr, Matrix4x4.CreateRotationY(angel));
+                            break;
+                        case Keys.Down:
+                            Translations.Transform(_vArr, Matrix4x4.CreateRotationY(-angel));
+                            break;
+                        case Keys.A:
+                            Translations.Transform(_vArr, Matrix4x4.CreateRotationZ(angel));
+                            break;
+                        case Keys.D:
+                            Translations.Transform(_vArr, Matrix4x4.CreateRotationZ(-angel));
+                            break;
+                    }
+
                 }
 
                 pictureBox1.Invalidate();
