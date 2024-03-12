@@ -20,6 +20,12 @@ namespace AKG_1
         private static readonly Vector2 MovingY = new Vector2(0, 10);
 
         private static Vector4[] _vArr;
+        
+        //grid normales from file
+        private static Vector3[] _vnArr;
+        private static Vector3[] _updateVnArr;
+        private static int[][] _vnToFArr;
+        
         private static Vector4[] _modelVArr;
 
         private static Vector4[] _updateVArr;
@@ -87,11 +93,20 @@ namespace AKG_1
                     ObjParser parser = new ObjParser(_modelPath);
                     Service.UpdateMatrix();
                     _vArr = parser.VList.ToArray();
+                    _vnArr = parser.VNList.ToArray();
                     _updateVArr = new Vector4[_vArr.Length];
+                    _updateVnArr = new Vector3[_vnArr.Length];
+                    
                     _modelVArr = new Vector4[_vArr.Length];
                     _fArr = new int[parser.FList.Count][];
 
-                    Service.VNormals = new Vector3[_fArr.Length];
+                    _vnToFArr = new int[parser.VNtoFList.Count][];
+                    for (var i = 0; i < parser.VNtoFList.Count; i++)
+                    {
+                        _vnToFArr[i] = parser.VNtoFList[i].ToArray();
+                    }
+                    
+                    Service.VPolygonNormales = new Vector3[_fArr.Length];
 
                     for (var i = 0; i < parser.FList.Count; i++)
                     {
@@ -110,7 +125,7 @@ namespace AKG_1
         private static void VertexesUpdate()
         {
             Service.UpdateMatrix();
-            Service.TranslatePositions(_vArr, _updateVArr, _fArr, _modelVArr);
+            Service.TranslatePositions(_vArr, _updateVArr, _fArr, _modelVArr, _vnArr, _updateVnArr);
             CleanZBuffer();
             DrawPoints();
         }
@@ -128,7 +143,7 @@ namespace AKG_1
                     Service.ScalingCof -= Service.Delta;
                 }
 
-                Service.Delta = Service.ScalingCof / 10;
+                Service.Delta = Service.ScalingCof / 3;
                 pictureBox1.Invalidate();
             }
         }
@@ -156,31 +171,34 @@ namespace AKG_1
                 DrawLineBresenham(bData, bitsPerPixel, scan0, clr, lastPoint, firstPoint, z);
             }
         }
-
+        
         private static unsafe void RastTriangles(BitmapData bData, byte bitsPerPixel, byte* scan0, Color clr)
         {
             for (var j = 0; j < _fArr.Length; j++)
             {
                 var temp = _modelVArr[_fArr[j][0] - 1];
                 Vector3 n = new Vector3(temp.X, temp.Y, temp.Z);
-
-                if (Vector3.Dot(Service.VNormals[j], Service.Camera - n) > 0)
+                
+                if (Vector3.Dot(Service.VPolygonNormales[j], Service.Camera - n) > 0)
                 {
-                    var intencity = Math.Abs(Vector3.Dot(Service.VNormals[j],
+                    var intencity = Math.Abs(Vector3.Dot(Service.VPolygonNormales[j],
                         Vector3.Normalize(-Service.LambertLight)));
 
                     Color nC = Color.FromArgb((int)(clr.R * intencity), (int)(clr.G * intencity),
                         (int)(clr.B * intencity));
 
                     var indexes = _fArr[j];
-
+                    var vnIndexes = _vnToFArr[j];
+                    
                     Vector4 f1 = _updateVArr[indexes[0] - 1];
-
+                    Vector3 n1 = _updateVnArr[vnIndexes[0] - 1];
                     for (var i = 1; i <= indexes.Length - 2; i++)
                     {
                         Vector4 f2 = _updateVArr[indexes[i] - 1];
                         Vector4 f3 = _updateVArr[indexes[i + 1] - 1];
 
+                        Vector3 n2 = _updateVnArr[vnIndexes[i] - 1];
+                        Vector3 n3 = _updateVnArr[vnIndexes[i + 1] - 1];
 
                         // Определение минимальных и максимальных значений x и y для трех точек
                         var minX = Math.Min(f1.X, Math.Min(f2.X, f3.X));
@@ -202,15 +220,63 @@ namespace AKG_1
                                 if (IsPointInTriangle(x, y, f1, f2, f3))
                                 {
                                     Vector4 barycentricCoords = CalculateBarycentricCoordinates(x, y, f1, f2, f3);
+
+                                    Vector3 interpolatedNormal = barycentricCoords.X * n1 + barycentricCoords.Y * n2 +
+                                                                 barycentricCoords.Z * n3;
+                                    interpolatedNormal = Vector3.Normalize(interpolatedNormal);
+                                    
+                                    var intensity = Math.Abs(Vector3.Dot(interpolatedNormal, Service.LambertLight));
+                                    
                                     // Расчет значения z с использованием барицентрических координат
                                     var z = barycentricCoords.X * f1.Z + barycentricCoords.Y * f2.Z +
                                             barycentricCoords.Z * f3.Z;
-                                    //DrawPoint(bData, bitsPerPixel, scan0, new Pen(nC), x, y, z, interpolatedNormal);
-                                    DrawPoint(bData, bitsPerPixel, scan0, nC, x + _moving.X, y + _moving.Y, z);
+                                    //DrawPoint(bData, bitsPerPixel, scan0, nC, x + _moving.X, y + _moving.Y, z);
+                                    DrawPoint(bData, bitsPerPixel, scan0, clr, x + _moving.X, y + _moving.Y, z, intensity);
                                 }
                             }
                         }
                     }
+                }
+            }
+        }
+
+        private static unsafe void DrawPoint(BitmapData bData, byte bitsPerPixel, byte* scan0, Color cl, float x,
+            float y,
+            float z)
+        {
+            var iX = (int)Math.Round(x);
+            var iY = (int)Math.Round(y);
+            if (x > 0 && x + 1 < _bitmap.Width && y > 0 && y + 1 < _bitmap.Height && _zBuffer[iX][iY] > z)
+            {
+                _zBuffer[iX][iY] = z;
+
+                var data = scan0 + iY * bData.Stride + iX * bitsPerPixel / 8;
+                if (data != null)
+                {
+                    // Примените интенсивность освещения к цвету пикселя
+                    data[0] = cl.B;
+                    data[1] = cl.G;
+                    data[2] = cl.R;
+                }
+            }
+        }
+        
+        private static unsafe void DrawPoint(BitmapData bData, byte bitsPerPixel, byte* scan0, Color cl, float x,
+            float y,float z, float intencity)
+        {
+            var iX = (int)Math.Round(x);
+            var iY = (int)Math.Round(y);
+            if (x > 0 && x + 1 < _bitmap.Width && y > 0 && y + 1 < _bitmap.Height && _zBuffer[iX][iY] > z)
+            {
+                _zBuffer[iX][iY] = z;
+
+                var data = scan0 + iY * bData.Stride + iX * bitsPerPixel / 8;
+                if (data != null)
+                {
+                    // Примените интенсивность освещения к цвету пикселя
+                    data[0] = (byte)(cl.B * intencity);
+                    data[1] = (byte)(cl.G * intencity);
+                    data[2] = (byte)(cl.R * intencity);
                 }
             }
         }
@@ -254,27 +320,6 @@ namespace AKG_1
             RastTriangles(bData, bitsPerPixel, scan0, SelectedColor);
             _bitmap.UnlockBits(bData);
 
-        }
-
-        private static unsafe void DrawPoint(BitmapData bData, byte bitsPerPixel, byte* scan0, Color cl, float x,
-            float y,
-            float z)
-        {
-            var iX = (int)Math.Round(x);
-            var iY = (int)Math.Round(y);
-            if (x > 0 && x + 1 < _bitmap.Width && y > 0 && y + 1 < _bitmap.Height && _zBuffer[iX][iY] > z)
-            {
-                _zBuffer[iX][iY] = z;
-
-                var data = scan0 + iY * bData.Stride + iX * bitsPerPixel / 8;
-                if (data != null)
-                {
-                    // Примените интенсивность освещения к цвету пикселя
-                    data[0] = cl.B;
-                    data[1] = cl.G;
-                    data[2] = cl.R;
-                }
-            }
         }
 
         private static unsafe void DrawLineBresenham(BitmapData bData, byte bitsPerPixel, byte* scan0, Color clr,
