@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.IO;
@@ -55,8 +54,17 @@ namespace AKG_1
             }
             return kd * dot * id;
         }
-        
-        
+
+        private static Vector3 CalcSpecLight(Vector3 normal, Vector3 view)
+        {
+            Vector3 minusLightDir = -Service.LambertLight;
+            Vector3 reflection = Vector3.Normalize(Vector3.Reflect(minusLightDir, normal));
+
+            float rv = Math.Max(Vector3.Dot(reflection, view), 0);
+            float temp = (float)Math.Pow(rv, Service.Alpha);
+
+            return Service.Is * temp;
+        }
 
         private static unsafe void PhongRastTriangles(BitmapData bData, byte bitsPerPixel, byte* scan0)
         {
@@ -107,16 +115,22 @@ namespace AKG_1
 
                                     Vector3 interpolatedNormal = barycentricCoords.X * n1 + barycentricCoords.Y * n2 +
                                                                  barycentricCoords.Z * n3;
-
-                                    //normale for dot
+                                    
+                                    //normal for dot
                                     interpolatedNormal = Vector3.Normalize(interpolatedNormal);
+
                                     var diffuse = CalcDiffuseLight(interpolatedNormal, Service.LambertLight, Service.Id,
                                         Service.Kd);
                                     var phongBg = CalcPhongBg(Service.Ka, Service.Ia);
 
-                                    //specular
+                                    var test = _modelVArr[_fArr[j][0] - 1];
                                     
-                                    var phongClr = phongBg + diffuse;
+                                    var view = new Vector3(test.X, test.Y, test.Z);
+                                    
+                                    //specular
+                                    var spec = CalcSpecLight(interpolatedNormal, view);
+
+                                    var phongClr = phongBg + diffuse + spec;
 
                                     var nCl = Color.FromArgb((byte)phongClr.X, (byte)phongClr.Y,
                                         (byte)phongClr.Z);
