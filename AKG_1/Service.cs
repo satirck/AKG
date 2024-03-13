@@ -26,6 +26,16 @@ namespace AKG_1
         private static Matrix4x4 _viewMatrix;
         private static Matrix4x4 _projectionMatrix;
         
+        //Moving vectors
+        public static Vector2 Moving = Vector2.Zero;
+        public static readonly Vector2 MovingX = new Vector2(10, 0);
+        public static readonly Vector2 MovingY = new Vector2(0, 10);
+        
+        //Mode variant
+        //1 is Grid
+        //2 is Lambert
+        //3 is Phong
+        public static int Mode = 1;
         
         //Graphics vars
         public static Color SelectedColor;
@@ -91,12 +101,8 @@ namespace AKG_1
             
             for (var i = 0; i < vnArr.Length; i++)
             {
-                //scale
-                updateVnArr[i] = Vector3.Transform(vnArr[i], scaleMatrix);
-                //to world    
-                updateVnArr[i] = Vector3.Transform(updateVnArr[i], WorldMatrix);
                 //toView
-                updateVnArr[i] = Vector3.Transform(updateVnArr[i], _viewMatrix);
+                updateVnArr[i] = Vector3.Transform(vnArr[i], _viewMatrix);
                 //to Projection
                 updateVnArr[i] = Vector3.Transform(updateVnArr[i], _projectionMatrix);
                 //to Viewport

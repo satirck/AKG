@@ -63,6 +63,9 @@ namespace AKG_1
             this.tbLightY = new System.Windows.Forms.TextBox();
             this.tbLightZ = new System.Windows.Forms.TextBox();
             this.tbLightX = new System.Windows.Forms.TextBox();
+            this.radioButton1 = new System.Windows.Forms.RadioButton();
+            this.radioButton2 = new System.Windows.Forms.RadioButton();
+            this.radioButton3 = new System.Windows.Forms.RadioButton();
             this.SuspendLayout();
             // 
             // lbBgColor
@@ -82,7 +85,7 @@ namespace AKG_1
             this.lbSelectedColor.Name = "lbSelectedColor";
             this.lbSelectedColor.Size = new System.Drawing.Size(201, 23);
             this.lbSelectedColor.TabIndex = 1;
-            this.lbSelectedColor.Text = "Цвет Заливки";
+            this.lbSelectedColor.Text = "Цвет Заливки(сетки)";
             this.lbSelectedColor.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
             // 
             // lbPhongBG
@@ -157,7 +160,7 @@ namespace AKG_1
             // 
             // button1
             // 
-            this.button1.Location = new System.Drawing.Point(109, 350);
+            this.button1.Location = new System.Drawing.Point(109, 383);
             this.button1.Name = "button1";
             this.button1.Size = new System.Drawing.Size(160, 32);
             this.button1.TabIndex = 10;
@@ -329,12 +332,48 @@ namespace AKG_1
             this.tbLightX.Size = new System.Drawing.Size(50, 22);
             this.tbLightX.TabIndex = 31;
             // 
+            // radioButton1
+            // 
+            this.radioButton1.Checked = true;
+            this.radioButton1.Location = new System.Drawing.Point(12, 343);
+            this.radioButton1.Name = "radioButton1";
+            this.radioButton1.Size = new System.Drawing.Size(104, 24);
+            this.radioButton1.TabIndex = 34;
+            this.radioButton1.TabStop = true;
+            this.radioButton1.Text = "Сетка";
+            this.radioButton1.UseVisualStyleBackColor = true;
+            this.radioButton1.CheckedChanged += new System.EventHandler(this.radioButton1_CheckedChanged);
+            // 
+            // radioButton2
+            // 
+            this.radioButton2.Location = new System.Drawing.Point(140, 343);
+            this.radioButton2.Name = "radioButton2";
+            this.radioButton2.Size = new System.Drawing.Size(104, 24);
+            this.radioButton2.TabIndex = 35;
+            this.radioButton2.Text = "Ламберта";
+            this.radioButton2.UseVisualStyleBackColor = true;
+            this.radioButton2.CheckedChanged += new System.EventHandler(this.radioButton2_CheckedChanged);
+            // 
+            // radioButton3
+            // 
+            this.radioButton3.Location = new System.Drawing.Point(273, 343);
+            this.radioButton3.Name = "radioButton3";
+            this.radioButton3.Size = new System.Drawing.Size(104, 24);
+            this.radioButton3.TabIndex = 36;
+            this.radioButton3.Text = "Фонга";
+            this.radioButton3.UseVisualStyleBackColor = true;
+            this.radioButton3.CheckedChanged += new System.EventHandler(this.radioButton3_CheckedChanged);
+            // 
             // ValuesChanger
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(8F, 16F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.AutoSize = true;
-            this.ClientSize = new System.Drawing.Size(385, 389);
+            this.AutoSizeMode = System.Windows.Forms.AutoSizeMode.GrowAndShrink;
+            this.ClientSize = new System.Drawing.Size(389, 428);
+            this.Controls.Add(this.radioButton3);
+            this.Controls.Add(this.radioButton2);
+            this.Controls.Add(this.radioButton1);
             this.Controls.Add(this.tbLightY);
             this.Controls.Add(this.tbLightZ);
             this.Controls.Add(this.tbLightX);
@@ -371,9 +410,14 @@ namespace AKG_1
             this.Name = "ValuesChanger";
             this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
             this.Text = "ValuesChanger";
+            this.FormClosing += new System.Windows.Forms.FormClosingEventHandler(this.ValuesChanger_FormClosing);
             this.ResumeLayout(false);
             this.PerformLayout();
         }
+
+        private System.Windows.Forms.RadioButton radioButton1;
+        private System.Windows.Forms.RadioButton radioButton2;
+        private System.Windows.Forms.RadioButton radioButton3;
 
         private System.Windows.Forms.Label lbLight;
         public System.Windows.Forms.TextBox tbLightY;

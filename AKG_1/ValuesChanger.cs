@@ -8,6 +8,7 @@ namespace AKG_1
 {
     public partial class ValuesChanger : Form
     {
+        private Form1 parent;
         //Background color
         private static Vector3 vBg = new Vector3(0);
         
@@ -18,18 +19,20 @@ namespace AKG_1
         private static Vector3 Light = new Vector3(1, 1, (float)-3.14f);
         
         //Colors for Phong Lightning
-        private static Vector3 vIa = new Vector3(40, 40, 100);
-        private static Vector3 vId = new Vector3(40, 40, 100);
+        private static Vector3 vIa = new Vector3(0, 0, 80);
+        private static Vector3 vId = new Vector3(0, 0, 40);
         private static Vector3 vIs = new Vector3(40, 20, 45);
 
         //Phong Koefs
-        private static float Ka = 1.0f;
-        private static float Kd = 3.0f;
+        private static float Ka = 0.5f;
+        private static float Kd = 1.0f;
         private static float Ks = 1.0f;
         private static float alpha = 1.0f;
         
-        public ValuesChanger()
+        public ValuesChanger(Form1 form1)
         {
+            parent = form1;
+            
             InitializeComponent();
 
             //Bg Color
@@ -111,6 +114,27 @@ namespace AKG_1
             alpha = float.Parse(tbAlpha.Text, CultureInfo.InvariantCulture.NumberFormat);
             
             UpdateColors();
+        }
+
+        private void radioButton1_CheckedChanged(object sender, EventArgs e)
+        {
+            Service.Mode = 1;
+        }
+
+        private void radioButton2_CheckedChanged(object sender, EventArgs e)
+        {
+            Service.Mode = 2;
+        }
+
+
+        private void radioButton3_CheckedChanged(object sender, EventArgs e)
+        {
+            Service.Mode = 3;
+        }
+
+        private void ValuesChanger_FormClosing(object sender, FormClosingEventArgs e)
+        {
+            parent.Close();
         }
     }
 }
