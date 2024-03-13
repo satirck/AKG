@@ -13,19 +13,18 @@ namespace AKG_1
         private static string _modelPath = "E:/bolt.obj";
         private static bool _shouldDraw;
         private static Bitmap _bitmap;
-        private static readonly Color SelectedColor = Color.Red;
 
         private static Vector2 _moving = Vector2.Zero;
         private static readonly Vector2 MovingX = new Vector2(10, 0);
         private static readonly Vector2 MovingY = new Vector2(0, 10);
 
         private static Vector4[] _vArr;
-        
+
         //grid normales from file
         private static Vector3[] _vnArr;
         private static Vector3[] _updateVnArr;
         private static int[][] _vnToFArr;
-        
+
         private static Vector4[] _modelVArr;
 
         private static Vector4[] _updateVArr;
@@ -38,6 +37,9 @@ namespace AKG_1
             InitializeComponent();
             _shouldDraw = false;
             MakeResizing(this);
+
+            ValuesChanger form2 = new ValuesChanger();
+            form2.Show();
         }
 
         private static void RemakeZBuffer()
@@ -96,7 +98,7 @@ namespace AKG_1
                     _vnArr = parser.VNList.ToArray();
                     _updateVArr = new Vector4[_vArr.Length];
                     _updateVnArr = new Vector3[_vnArr.Length];
-                    
+
                     _modelVArr = new Vector4[_vArr.Length];
                     _fArr = new int[parser.FList.Count][];
 
@@ -105,7 +107,7 @@ namespace AKG_1
                     {
                         _vnToFArr[i] = parser.VNtoFList[i].ToArray();
                     }
-                    
+
                     Service.VPolygonNormales = new Vector3[_fArr.Length];
 
                     for (var i = 0; i < parser.FList.Count; i++)
@@ -171,25 +173,51 @@ namespace AKG_1
                 DrawLineBresenham(bData, bitsPerPixel, scan0, clr, lastPoint, firstPoint, z);
             }
         }
-        
+
+        private static Vector3 CalcPhongBg(float Ka, Vector3 Ia)
+        {
+            return Ka * Ia;
+        }
+
+        private static Vector3 CalcDiffuseLightning(Vector3 lg, Vector3 polygonNormal, float Kd, Vector3 Id)
+        {
+            return Kd * (Vector3.Dot(Vector3.Normalize(polygonNormal), Vector3.Normalize(lg))) * Id;
+        }
+
+        private static Vector3 CalcMirror(float Ks, Vector3 R, Vector3 V, float a, Vector3 Is)
+        {
+            // R - направление отраженного луча
+            // V - направление камеры
+            // a - коэффициент зеркальности материала
+            // Is - интенсивность и цвет источника света
+
+            // Вычисляем угол между отраженным лучом и направлением камеры
+            float cos_alpha = Vector3.Dot(R, V);
+
+            // Если угол между отраженным лучом и направлением камеры меньше нуля, 
+            // это значит, что отраженный свет не виден из точки обзора
+            if (cos_alpha < 0)
+                return Vector3.Zero;
+
+            // Расчет зеркального освещения по модели Фонга
+            var specularIntensity = Ks * Is * (float)Math.Pow(cos_alpha, a);
+
+            // Возвращаем вектор цвета зеркального освещения с одинаковой интенсивностью для всех компонентов
+            return specularIntensity;
+        }
+
         private static unsafe void RastTriangles(BitmapData bData, byte bitsPerPixel, byte* scan0, Color clr)
         {
             for (var j = 0; j < _fArr.Length; j++)
             {
                 var temp = _modelVArr[_fArr[j][0] - 1];
                 Vector3 n = new Vector3(temp.X, temp.Y, temp.Z);
-                
+
                 if (Vector3.Dot(Service.VPolygonNormales[j], Service.Camera - n) > 0)
                 {
-                    var intencity = Math.Abs(Vector3.Dot(Service.VPolygonNormales[j],
-                        Vector3.Normalize(-Service.LambertLight)));
-
-                    Color nC = Color.FromArgb((int)(clr.R * intencity), (int)(clr.G * intencity),
-                        (int)(clr.B * intencity));
-
                     var indexes = _fArr[j];
                     var vnIndexes = _vnToFArr[j];
-                    
+
                     Vector4 f1 = _updateVArr[indexes[0] - 1];
                     Vector3 n1 = _updateVnArr[vnIndexes[0] - 1];
                     for (var i = 1; i <= indexes.Length - 2; i++)
@@ -220,18 +248,15 @@ namespace AKG_1
                                 if (IsPointInTriangle(x, y, f1, f2, f3))
                                 {
                                     Vector4 barycentricCoords = CalculateBarycentricCoordinates(x, y, f1, f2, f3);
-
-                                    Vector3 interpolatedNormal = barycentricCoords.X * n1 + barycentricCoords.Y * n2 +
-                                                                 barycentricCoords.Z * n3;
-                                    interpolatedNormal = Vector3.Normalize(interpolatedNormal);
-                                    
-                                    var intensity = Math.Abs(Vector3.Dot(interpolatedNormal, Service.LambertLight));
-                                    
                                     // Расчет значения z с использованием барицентрических координат
                                     var z = barycentricCoords.X * f1.Z + barycentricCoords.Y * f2.Z +
                                             barycentricCoords.Z * f3.Z;
-                                    //DrawPoint(bData, bitsPerPixel, scan0, nC, x + _moving.X, y + _moving.Y, z);
-                                    DrawPoint(bData, bitsPerPixel, scan0, clr, x + _moving.X, y + _moving.Y, z, intensity);
+                                    
+                                    var phongClr = CalcPhongBg(Service.Ka, Service.Ia);
+
+                                    var nCl = Color.FromArgb((byte)phongClr.X, (byte)phongClr.Y, (byte)phongClr.Z);
+                                    
+                                    DrawPoint(bData, bitsPerPixel, scan0, nCl, x + _moving.X, y + _moving.Y, z);
                                 }
                             }
                         }
@@ -260,9 +285,9 @@ namespace AKG_1
                 }
             }
         }
-        
+
         private static unsafe void DrawPoint(BitmapData bData, byte bitsPerPixel, byte* scan0, Color cl, float x,
-            float y,float z, float intencity)
+            float y, float z, float intencity)
         {
             var iX = (int)Math.Round(x);
             var iY = (int)Math.Round(y);
@@ -309,7 +334,7 @@ namespace AKG_1
         {
             using (Graphics g = Graphics.FromImage(_bitmap))
             {
-                g.Clear(Color.White);
+                g.Clear(Service.BgColor);
             }
 
             BitmapData bData = _bitmap.LockBits(new Rectangle(0, 0, _bitmap.Width, _bitmap.Height),
@@ -317,7 +342,7 @@ namespace AKG_1
             var bitsPerPixel = (byte)Image.GetPixelFormatSize(bData.PixelFormat);
             var scan0 = (byte*)bData.Scan0;
             //DrawingFullGrid(bData, bitsPerPixel, scan0, whitePen);
-            RastTriangles(bData, bitsPerPixel, scan0, SelectedColor);
+            RastTriangles(bData, bitsPerPixel, scan0, Service.SelectedColor);
             _bitmap.UnlockBits(bData);
 
         }

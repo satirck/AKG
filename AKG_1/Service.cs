@@ -18,15 +18,28 @@ namespace AKG_1
         public static Size CameraViewSize = new Size(1080, 720);
 
         public static readonly Vector3 Camera = new Vector3(1, 2, (float)Math.PI);
-        public static Vector3 LambertLight = new Vector3(1, 1, -(float)Math.PI);
-        private static readonly Vector3 _target = Vector3.Zero;
-        private static readonly Vector3 _up = Vector3.UnitY;
+        public static Vector3 LambertLight = new Vector3(1, 1, (float)-Math.PI);
+        private static readonly Vector3 Target = Vector3.Zero;
+        private static readonly Vector3 Up = Vector3.UnitY;
 
         private static readonly Matrix4x4 WorldMatrix = Matrix4x4.Identity;
         private static Matrix4x4 _viewMatrix;
         private static Matrix4x4 _projectionMatrix;
+        
+        
+        //Graphics vars
+        public static Color SelectedColor;
+        public static Color BgColor;
+        public static Vector3 Ia;
+        public static Vector3 Id;
+        public static Vector3 Is;
+        public static float Ka;
+        public static float Kd;
+        public static float Ks;
+        public static float Alpha;
+        
 
-        public static void TranslatePositions(Vector4[] vArr, Vector4[] updateVArr, int[][] _fArr, Vector4[] modelVArr,
+        public static void TranslatePositions(Vector4[] vArr, Vector4[] updateVArr, int[][] fArr, Vector4[] modelVArr,
             Vector3[] vnArr, Vector3[] updateVnArr)
         {
             Matrix4x4 scaleMatrix = Matrix4x4.CreateScale(ScalingCof);
@@ -58,7 +71,7 @@ namespace AKG_1
             //calc updates
             for (int i = 0; i < VPolygonNormales.Length; i++)
             {
-                var indexes = _fArr[i];
+                var indexes = fArr[i];
 
                 Vector4 f1 = modelVArr[indexes[0] - 1];
                 Vector4 f2 = modelVArr[indexes[1] - 1];
@@ -100,7 +113,7 @@ namespace AKG_1
 
         public static void UpdateMatrix()
         {
-            _viewMatrix = Matrix4x4.CreateLookAt(Camera, _target, _up);
+            _viewMatrix = Matrix4x4.CreateLookAt(Camera, Target, Up);
             _projectionMatrix =
                 Matrix4x4.CreatePerspectiveFieldOfView(Angle, CameraView, ZNear, ZFar);
         }
