@@ -59,15 +59,18 @@ namespace AKG_1
 
         private static Vector3 CalcSpecLight(Vector3 normal, Vector3 view, Vector3 lightDir)
         {
-            var reflection = Vector3.Normalize(Vector3.Reflect(lightDir, normal));
+            var reflection = lightDir - 2 * Vector3.Dot(lightDir, normal) * normal;
+            reflection = Vector3.Normalize(reflection);
+            
             float rv = Vector3.Dot(reflection, view);
             if (rv < 0)
             {
                 return Vector3.Zero;
             }
-            float temp = (float)Math.Pow(rv, Service.Alpha);
+            float pow = (float)Math.Pow(rv, Service.Alpha);
+            var part1 = Service.Ks * pow;
 
-            return Service.Ks * Service.Is * temp;
+            return part1 * Service.Is;
         }
 
         public static unsafe void PhongRastTriangles(BitmapData bData, byte bitsPerPixel, byte* scan0)
