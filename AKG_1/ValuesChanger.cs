@@ -16,7 +16,7 @@ namespace AKG_1
         private static Vector3 vSc = new Vector3(192, 64, 192);
         
         //Light pos
-        private static Vector3 Light = new Vector3(1, 1, 1f);
+        private static Vector3 Light = new Vector3(20, 20, 2);
         
         //Colors for Phong Lightning
         private static Vector3 vIa = new Vector3(16, 16, 16);
@@ -101,7 +101,6 @@ namespace AKG_1
                 float.Parse(tbLightY.Text, CultureInfo.InvariantCulture.NumberFormat),
                 float.Parse(tbLightZ.Text, CultureInfo.InvariantCulture.NumberFormat)
             );
-            
             
             vIa = new Vector3(int.Parse(tbIaR.Text), int.Parse(tbIaG.Text), int.Parse(tbIaB.Text));
             vId = new Vector3(int.Parse(tbIdR.Text), int.Parse(tbIdG.Text), int.Parse(tbIdB.Text));

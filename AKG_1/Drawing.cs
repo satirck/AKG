@@ -18,7 +18,7 @@ namespace AKG_1
                 if (Vector3.Dot(Service.VPolygonNormals[j], Service.Camera - n) > 0)
                 {
                     var intensity = Math.Abs(Vector3.Dot(Service.VPolygonNormals[j],
-                        Vector3.Normalize(-(Service.LambertLight - n ))));
+                        Vector3.Normalize((Service.LambertLight - n))));
 
                     Color nC = Color.FromArgb((int)(clr.R * intensity), (int)(clr.G * intensity),
                         (int)(clr.B * intensity));

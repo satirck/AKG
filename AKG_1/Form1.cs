@@ -63,11 +63,11 @@ namespace AKG_1
             reflection = Vector3.Normalize(reflection);
             
             float rv = Vector3.Dot(reflection, view);
-            if (rv < 0)
+            if (rv > 0)
             {
                 return Vector3.Zero;
             }
-            float pow = (float)Math.Pow(rv, Service.Alpha);
+            float pow = (float)Math.Pow(Math.Abs(rv), Service.Alpha);
             var part1 = Service.Ks * pow;
 
             return part1 * Service.Is;
@@ -148,7 +148,11 @@ namespace AKG_1
                                     var spec = CalcSpecLight(interpolatedNormal, cameraDir, lightDir);
                                     
                                     var phongClr = phongBg + diffuse + spec;
+                                    //var phongClr = spec;
                                     
+                                    phongClr.X = phongClr.X > 255 ? 255 : phongClr.X; 
+                                    phongClr.Y = phongClr.Y > 255 ? 255 : phongClr.Y; 
+                                    phongClr.Z = phongClr.Z > 255 ? 255 : phongClr.Z; 
                                     
                                     var nCl = Color.FromArgb((byte)phongClr.X, (byte)phongClr.Y,
                                         (byte)phongClr.Z);
