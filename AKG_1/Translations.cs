@@ -15,7 +15,7 @@ namespace AKG_1
         }
         
         // Функция для расчета барицентрических координат
-        public static Vector4 CalculateBarycentricCoordinates(int x, int y, Vector4 v1, Vector4 v2, Vector4 v3)
+        public static Vector3 CalculateBarycentricCoordinates(int x, int y, Vector4 v1, Vector4 v2, Vector4 v3)
         {
             var alpha = ((v2.Y - v3.Y) * (x - v3.X) + (v3.X - v2.X) * (y - v3.Y)) /
                         ((v2.Y - v3.Y) * (v1.X - v3.X) + (v3.X - v2.X) * (v1.Y - v3.Y));
@@ -23,7 +23,7 @@ namespace AKG_1
                        ((v2.Y - v3.Y) * (v1.X - v3.X) + (v3.X - v2.X) * (v1.Y - v3.Y));
             var gamma = 1.0f - alpha - beta;
 
-            return new Vector4(alpha, beta, gamma, 0);
+            return new Vector3(alpha, beta, gamma);
         }
 
         // Функция для проверки, принадлежит ли точка треугольнику

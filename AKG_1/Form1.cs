@@ -18,7 +18,6 @@ namespace AKG_1
 
         //grid normal's from file
         private static Vector3[] _vnArr;
-        private static Vector3[] _updateVnArr;
         private static int[][] _vnToFArr;
 
         private static Vector4[] _modelVArr;
@@ -26,14 +25,17 @@ namespace AKG_1
         private static Vector4[] _updateVArr;
         private static int[][] _fArr;
 
-        private static float[][] _zBuffer;
+        private static float[][] _zBuffer = new float[2000][];
 
         public Form1()
         {
             InitializeComponent();
             _shouldDraw = false;
             MakeResizing(this);
-
+            for (int i = 0; i < _zBuffer.Length; i++)
+            {
+                _zBuffer[i] = new float[1000];
+            }
             ValuesChanger form2 = new ValuesChanger(this);
             form2.Show();
         }
@@ -48,46 +50,54 @@ namespace AKG_1
             lightPosition = Vector3.Normalize(lightPosition);
             normal = Vector3.Normalize(normal);
             var dot = Vector3.Dot(normal, lightPosition);
-            if (dot > 1)
-            {
-                throw new Exception("Dot is more than 1");
-            }
-            return kd * dot * id;
+            
+            if (dot < 0)
+                return Vector3.Zero;
+            
+            return id * dot * kd;
         }
 
-        private static Vector3 CalcSpecLight(Vector3 normal, Vector3 view)
+        private static Vector3 CalcSpecLight(Vector3 normal, Vector3 view, Vector3 lightDir)
         {
-            Vector3 minusLightDir = -Service.LambertLight;
-            Vector3 reflection = Vector3.Normalize(Vector3.Reflect(minusLightDir, normal));
-
-            float rv = Math.Max(Vector3.Dot(reflection, view), 0);
+            var reflection = Vector3.Normalize(Vector3.Reflect(lightDir, normal));
+            float rv = Vector3.Dot(reflection, view);
+            if (rv < 0)
+            {
+                return Vector3.Zero;
+            }
             float temp = (float)Math.Pow(rv, Service.Alpha);
 
-            return Service.Is * temp;
+            return Service.Ks * Service.Is * temp;
         }
 
-        private static unsafe void PhongRastTriangles(BitmapData bData, byte bitsPerPixel, byte* scan0)
+        public static unsafe void PhongRastTriangles(BitmapData bData, byte bitsPerPixel, byte* scan0)
         {
             for (var j = 0; j < _fArr.Length; j++)
             {
                 var temp = _modelVArr[_fArr[j][0] - 1];
                 Vector3 n = new Vector3(temp.X, temp.Y, temp.Z);
-
-                if (Vector3.Dot(Service.VPolygonNormales[j], Service.Camera - n) > 0)
+                var normalCamView = Vector3.Normalize(Service.Camera - n);
+                
+                if (Vector3.Dot(Service.VPolygonNormals[j], normalCamView) > 0)
                 {
                     var indexes = _fArr[j];
-                    var vnIndexes = _vnToFArr[j];
 
                     Vector4 f1 = _updateVArr[indexes[0] - 1];
-                    Vector3 n1 = _updateVnArr[vnIndexes[0] - 1];
+
+                    Vector3 n1 = Service.VertexNormals[indexes[0] - 1];
+
+                    Vector4 f1Mode = _modelVArr[indexes[0] - 1];
 
                     for (var i = 1; i <= indexes.Length - 2; i++)
                     {
                         Vector4 f2 = _updateVArr[indexes[i] - 1];
-                        Vector3 n2 = _updateVnArr[vnIndexes[i] - 1];
+                        Vector4 f2Model = _modelVArr[indexes[i] - 1];
                         Vector4 f3 = _updateVArr[indexes[i + 1] - 1];
-                        Vector3 n3 = _updateVnArr[vnIndexes[i + 1] - 1];
+                        Vector4 f3Model = _modelVArr[indexes[i + 1] - 1];
 
+                        Vector3 n2 = Service.VertexNormals[indexes[i] - 1];
+                        Vector3 n3 = Service.VertexNormals[indexes[i + 1] - 1];
+                        
                         // Определение минимальных и максимальных значений x и y для трех точек
                         var minX = Math.Min(f1.X, Math.Min(f2.X, f3.X));
                         var maxX = Math.Max(f1.X, Math.Max(f2.X, f3.X));
@@ -100,6 +110,7 @@ namespace AKG_1
                         var startY = (int)Math.Ceiling(minY);
                         var endY = (int)Math.Floor(maxY);
                         // Перебор всех точек внутри ограничивающего прямоугольника
+
                         for (var y = startY; y <= endY; y++)
                         {
                             for (var x = startX; x <= endX; x++)
@@ -107,7 +118,7 @@ namespace AKG_1
                                 // Проверка, принадлежит ли точка треугольнику
                                 if (Translations.IsPointInTriangle(x, y, f1, f2, f3))
                                 {
-                                    Vector4 barycentricCoords =
+                                    Vector3 barycentricCoords =
                                         Translations.CalculateBarycentricCoordinates(x, y, f1, f2, f3);
                                     // Расчет значения z с использованием барицентрических координат
                                     var z = barycentricCoords.X * f1.Z + barycentricCoords.Y * f2.Z +
@@ -115,25 +126,30 @@ namespace AKG_1
 
                                     Vector3 interpolatedNormal = barycentricCoords.X * n1 + barycentricCoords.Y * n2 +
                                                                  barycentricCoords.Z * n3;
-                                    
-                                    //normal for dot
+
                                     interpolatedNormal = Vector3.Normalize(interpolatedNormal);
 
-                                    var diffuse = CalcDiffuseLight(interpolatedNormal, Service.LambertLight, Service.Id,
-                                        Service.Kd);
+                                    Vector4 frag = barycentricCoords.X * f1Mode + barycentricCoords.Y * f2Model +
+                                                   barycentricCoords.Z * f3Model;
+
+                                    Vector3 fragV3 = new Vector3(frag.X, frag.Y, frag.Z);
+
+                                    var lightDir = Vector3.Normalize(Service.LambertLight - fragV3);
+                                    
+                                    var cameraDir = Vector3.Normalize(Service.Camera - fragV3);
+                                    
                                     var phongBg = CalcPhongBg(Service.Ka, Service.Ia);
-
-                                    var test = _modelVArr[_fArr[j][0] - 1];
                                     
-                                    var view = new Vector3(test.X, test.Y, test.Z);
-                                    
-                                    //specular
-                                    var spec = CalcSpecLight(interpolatedNormal, view);
+                                    var diffuse = CalcDiffuseLight(interpolatedNormal, lightDir, Service.Id, Service.Kd);
 
+                                    var spec = CalcSpecLight(interpolatedNormal, cameraDir, lightDir);
+                                    
                                     var phongClr = phongBg + diffuse + spec;
-
+                                    
+                                    
                                     var nCl = Color.FromArgb((byte)phongClr.X, (byte)phongClr.Y,
                                         (byte)phongClr.Z);
+
 
                                     DrawPoint(bData, bitsPerPixel, scan0, nCl, x + Service.Moving.X,
                                         y + Service.Moving.Y, z);
@@ -146,8 +162,7 @@ namespace AKG_1
         }
 
         private static unsafe void DrawPoint(BitmapData bData, byte bitsPerPixel, byte* scan0, Color cl, float x,
-            float y,
-            float z)
+            float y, float z)
         {
             var iX = (int)Math.Round(x);
             var iY = (int)Math.Round(y);
@@ -192,10 +207,6 @@ namespace AKG_1
                         _bitmap.Width, _bitmap.Height, _zBuffer);
                     break;
             }
-
-            //RastTriangles(bData, bitsPerPixel, scan0);
-
-
             _bitmap.UnlockBits(bData);
 
         }
@@ -203,18 +214,9 @@ namespace AKG_1
         private static void VertexesUpdate()
         {
             Service.UpdateMatrix();
-            Service.TranslatePositions(_vArr, _updateVArr, _fArr, _modelVArr, _vnArr, _updateVnArr);
+            Service.TranslatePositions(_vArr, _updateVArr, _fArr, _modelVArr);
             CleanZBuffer();
             DrawPoints();
-        }
-
-        private static void RemakeZBuffer()
-        {
-            _zBuffer = new float[_size.Width][];
-            for (var i = 0; i < _size.Width; i++)
-            {
-                _zBuffer[i] = new float[_size.Height];
-            }
         }
 
         private static void CleanZBuffer()
@@ -236,7 +238,6 @@ namespace AKG_1
             form1.lbWidth.Text = _size.Width.ToString();
             form1.pictureBox1.Size = _size;
             _bitmap = new Bitmap(_size.Width, _size.Height);
-            RemakeZBuffer();
 
             if (_shouldDraw)
             {
@@ -261,20 +262,14 @@ namespace AKG_1
                     ObjParser parser = new ObjParser(_modelPath);
                     Service.UpdateMatrix();
                     _vArr = parser.VList.ToArray();
-                    _vnArr = parser.VNList.ToArray();
                     _updateVArr = new Vector4[_vArr.Length];
-                    _updateVnArr = new Vector3[_vnArr.Length];
 
                     _modelVArr = new Vector4[_vArr.Length];
                     _fArr = new int[parser.FList.Count][];
-
-                    _vnToFArr = new int[parser.VNtoFList.Count][];
-                    for (var i = 0; i < parser.VNtoFList.Count; i++)
-                    {
-                        _vnToFArr[i] = parser.VNtoFList[i].ToArray();
-                    }
-
-                    Service.VPolygonNormales = new Vector3[_fArr.Length];
+                    
+                    Service.VPolygonNormals = new Vector3[_fArr.Length];
+                    Service.VertexNormals = new Vector3[_vArr.Length];
+                    Service.Counters = new int[_vArr.Length];
 
                     for (var i = 0; i < parser.FList.Count; i++)
                     {
@@ -303,7 +298,7 @@ namespace AKG_1
                     Service.ScalingCof -= Service.Delta;
                 }
 
-                Service.Delta = Service.ScalingCof / 3;
+                Service.Delta = Service.ScalingCof / 5;
                 pictureBox1.Invalidate();
             }
         }

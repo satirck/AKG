@@ -13,18 +13,18 @@ namespace AKG_1
         private static Vector3 vBg = new Vector3(0);
         
         //Color for flat model or Grid
-        private static Vector3 vSc = new Vector3(0, 0, 255);
+        private static Vector3 vSc = new Vector3(192, 64, 192);
         
         //Light pos
-        private static Vector3 Light = new Vector3(1, 1, (float)-3.14f);
+        private static Vector3 Light = new Vector3(1, 1, 1f);
         
         //Colors for Phong Lightning
-        private static Vector3 vIa = new Vector3(0, 0, 80);
-        private static Vector3 vId = new Vector3(0, 0, 40);
-        private static Vector3 vIs = new Vector3(40, 20, 45);
+        private static Vector3 vIa = new Vector3(16, 16, 16);
+        private static Vector3 vId = new Vector3(192, 64, 192);
+        private static Vector3 vIs = new Vector3(255);
 
         //Phong Koefs
-        private static float Ka = 0.5f;
+        private static float Ka = 1.0f;
         private static float Kd = 1.0f;
         private static float Ks = 1.0f;
         private static float alpha = 1.0f;
@@ -36,15 +36,14 @@ namespace AKG_1
             InitializeComponent();
 
             //Bg Color
-            tbBgR.Text = Color.Black.R.ToString();
-            tbBgG.Text = Color.Black.G.ToString();
-            tbBgB.Text = Color.Black.B.ToString();
-            Service.BgColor = Color.Black;
+            tbBgR.Text = vBg.X.ToString(CultureInfo.InvariantCulture);
+            tbBgG.Text = vBg.Y.ToString(CultureInfo.InvariantCulture);
+            tbBgB.Text = vBg.Z.ToString(CultureInfo.InvariantCulture);
 
             //Selected Color
-            tbSCR.Text = Color.Blue.R.ToString();
-            tbSCG.Text = Color.Blue.G.ToString();
-            tbSCB.Text = Color.Blue.B.ToString();
+            tbSCR.Text = vSc.X.ToString(CultureInfo.InvariantCulture);
+            tbSCG.Text = vSc.Y.ToString(CultureInfo.InvariantCulture);
+            tbSCB.Text = vSc.Z.ToString(CultureInfo.InvariantCulture);
 
             //Light Pos
             tbLightX.Text = Light.X.ToString(CultureInfo.InvariantCulture);

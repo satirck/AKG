@@ -15,10 +15,10 @@ namespace AKG_1
                 var temp = modelVArr[fArr[j][0] - 1];
                 Vector3 n = new Vector3(temp.X, temp.Y, temp.Z);
 
-                if (Vector3.Dot(Service.VPolygonNormales[j], Service.Camera - n) > 0)
+                if (Vector3.Dot(Service.VPolygonNormals[j], Service.Camera - n) > 0)
                 {
-                    var intensity = Math.Abs(Vector3.Dot(Service.VPolygonNormales[j],
-                        Vector3.Normalize(-Service.LambertLight)));
+                    var intensity = Math.Abs(Vector3.Dot(Service.VPolygonNormals[j],
+                        Vector3.Normalize(-(Service.LambertLight - n ))));
 
                     Color nC = Color.FromArgb((int)(clr.R * intensity), (int)(clr.G * intensity),
                         (int)(clr.B * intensity));
@@ -51,7 +51,7 @@ namespace AKG_1
                                 // Проверка, принадлежит ли точка треугольнику
                                 if (Translations.IsPointInTriangle(x, y, f1, f2, f3))
                                 {
-                                    Vector4 barycentricCoords = Translations.CalculateBarycentricCoordinates(x, y, f1, f2, f3);
+                                    Vector3 barycentricCoords = Translations.CalculateBarycentricCoordinates(x, y, f1, f2, f3);
                                     // Расчет значения z с использованием барицентрических координат
                                     var z = barycentricCoords.X * f1.Z + barycentricCoords.Y * f2.Z +
                                             barycentricCoords.Z * f3.Z;
