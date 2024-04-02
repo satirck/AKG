@@ -14,6 +14,6 @@ build_property.PlatformNeutralAssembly =
 build_property.EnforceExtendedAnalyzerRules = 
 build_property._SupportedPlatformList = Linux,macOS,Windows
 build_property.RootNamespace = Akg
-build_property.ProjectDir = E:\Mikita\Work\C#\AKG 1\Akg\
+build_property.ProjectDir = D:\Mikita\Work\C#\AKG\Akg\
 build_property.EnableComHosting = 
 build_property.EnableGeneratedComInterfaceComImportInterop = 

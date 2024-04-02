@@ -127,7 +127,7 @@ namespace Akg
 
             for (int i = 0; i < VertexNormals.Length; i++)
             {
-                VertexNormals[i] /= Counters[i];
+                //VertexNormals[i] /= Counters[i];
                 VertexNormals[i] = Vector3.Normalize(VertexNormals[i]);
             }
         }

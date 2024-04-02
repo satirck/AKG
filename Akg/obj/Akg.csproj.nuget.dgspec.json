@@ -1,17 +1,17 @@
 {
   "format": 1,
   "restore": {
-    "E:\\Mikita\\Work\\C#\\AKG 1\\Akg\\Akg.csproj": {}
+    "D:\\Mikita\\Work\\C#\\AKG\\Akg\\Akg.csproj": {}
   },
   "projects": {
-    "E:\\Mikita\\Work\\C#\\AKG 1\\Akg\\Akg.csproj": {
+    "D:\\Mikita\\Work\\C#\\AKG\\Akg\\Akg.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "E:\\Mikita\\Work\\C#\\AKG 1\\Akg\\Akg.csproj",
+        "projectUniqueName": "D:\\Mikita\\Work\\C#\\AKG\\Akg\\Akg.csproj",
         "projectName": "Akg",
-        "projectPath": "E:\\Mikita\\Work\\C#\\AKG 1\\Akg\\Akg.csproj",
+        "projectPath": "D:\\Mikita\\Work\\C#\\AKG\\Akg\\Akg.csproj",
         "packagesPath": "C:\\Users\\rbhjh\\.nuget\\packages\\",
-        "outputPath": "E:\\Mikita\\Work\\C#\\AKG 1\\Akg\\obj\\",
+        "outputPath": "D:\\Mikita\\Work\\C#\\AKG\\Akg\\obj\\",
         "projectStyle": "PackageReference",
         "configFilePaths": [
           "C:\\Users\\rbhjh\\AppData\\Roaming\\NuGet\\NuGet.Config",
@@ -63,7 +63,7 @@
               "privateAssets": "none"
             }
           },
-          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\8.0.201/PortableRuntimeIdentifierGraph.json"
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\8.0.203/PortableRuntimeIdentifierGraph.json"
         }
       }
     }

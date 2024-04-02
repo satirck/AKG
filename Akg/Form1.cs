@@ -4,6 +4,7 @@ using System.Drawing;
 using System.Drawing.Imaging;
 using System.Numerics;
 using System.Runtime.InteropServices;
+using System.Windows.Forms;
 using Akg.ValueChanger;
 
 namespace Akg;
@@ -11,14 +12,14 @@ namespace Akg;
 public partial class Form1 : Form
 {
     private static Size _size;
-    //private static string modelFolder = "E:/Models/Shovel Knight";
-    private static string modelFolder = "E:/Models/Head";
-    //private static string modelFolder = "E:/Models/Plane";
+    //private static string modelFolder = "D:/Models/Shovel Knight";
+    private static string modelFolder = "D:/Models/Head";
+    //private static string modelFolder = "D:/Models/Plane";
 
-    private static string _modelPath = modelFolder + "/model.obj";
-    private static string diffuseMapPath = modelFolder + "/diffuse.png";
-    private static string specularMapPath = modelFolder + "/specular.png";
-    private static string normalsMapPath = modelFolder + "/normal.png";
+    private const string modelPref = "/model.obj";
+    private const string diffPref = "/diffuse.png";
+    private const string specPref = "/specular.png";
+    private const string normalsPref = "/normal.png";
 
     private static bool _shouldDraw;
     private static Bitmap _bitmap = new Bitmap(1, 1);
@@ -36,17 +37,9 @@ public partial class Form1 : Form
     private static Vector3[] _vtList = [];
     private static int[][] _fvtList = [];
 
-    private static Bitmap diffuseMap = new Bitmap(diffuseMapPath);
-    private static int diffuseWidth = diffuseMap.Width;
-    private static int diffuseHeight = diffuseMap.Height;
-
-    private static Bitmap specularMap = new Bitmap(specularMapPath);
-    private static int specularWidth = specularMap.Width;
-    private static int specularHeight = specularMap.Height;
-
-    private static Bitmap normalMap = new Bitmap(normalsMapPath);
-    private static int normalWidth = normalMap.Width;
-    private static int normalHeight = normalMap.Height;
+    private static Bitmap? diffuseMap;
+    private static Bitmap? specularMap;
+    private static Bitmap? normalMap;
 
     ValuesChanger form2;
 
@@ -149,36 +142,53 @@ public partial class Form1 : Form
                                 var lightDir = Vector3.Normalize(Service.LambertLight - fragV3);
                                 var cameraDir = Vector3.Normalize(Service.Camera - fragV3);
 
-                                textureCoord.X *= diffuseWidth;
-                                textureCoord.Y *= diffuseHeight;
+                                var Id = Service.Id;
+                                var normal = interpolatedNormal;
+                                var Ks = Service.Ks;
+                                if (diffuseMap != null)
+                                {
+                                    textureCoord.X *= diffuseMap.Width;
+                                    textureCoord.Y *= diffuseMap.Height;
 
-                                textureCoord /= textureCoord.Z;
+                                    textureCoord /= textureCoord.Z;
 
-                                int u = Math.Max(0, Math.Min((int)textureCoord.X, diffuseHeight - 1)); // Получение координаты U из textureCoord
-                                int v = Math.Max(0, Math.Min(diffuseWidth - (int)textureCoord.Y, diffuseWidth - 1)); // Получение координаты V из textureCoord
+                                    int u = Math.Max(0, Math.Min((int)textureCoord.X, diffuseMap.Height - 1)); // Получение координаты U из textureCoord
+                                    int v = Math.Max(0, Math.Min(diffuseMap.Width - (int)textureCoord.Y, diffuseMap.Width - 1)); // Получение координаты V из textureCoord
 
-                                Color color = diffuseMap.GetPixel(u, v);
-                                float Ks = specularMap.GetPixel(u, v).R / 255f;
+                                    Color color = diffuseMap.GetPixel(u, v);
+                                    Id = new Vector3(color.R, color.G, color.B);
 
-                                Color normalColor = normalMap.GetPixel(u, v);
-                                float r = normalColor.R / 255f;  // Компонента R (красный)
-                                float g = normalColor.G / 255f;  // Компонента G (зеленый)
-                                float b = normalColor.B / 255f;  // Компонента B (синий)
-                                Vector3 normal = new Vector3(
-                                    (r * 2f) - 1f,  // Компонента X
-                                    (g * 2f) - 1f,  // Компонента Y
-                                    (b * 2f) - 1f   // Компонента Z
-                                    );
+                                    if (specularMap != null)
+                                    {
+                                        //specular
+                                        Ks = specularMap.GetPixel(u, v).R / 255f;
+                                    }
 
-                                var rotX = Matrix4x4.CreateRotationX(angels.X);
-                                var rotY = Matrix4x4.CreateRotationX(angels.Y);
-                                var rotZ = Matrix4x4.CreateRotationX(angels.Z);
+                                    if (normalMap != null)
+                                    {
+                                        //normal
+                                        Color normalColor = normalMap.GetPixel(u, v);
+                                        float r = normalColor.R / 255f;  // Компонента R (красный)
+                                        float g = normalColor.G / 255f;  // Компонента G (зеленый)
+                                        float b = normalColor.B / 255f;  // Компонента B (синий)
+                                        normal = new Vector3(
+                                            (r * 2f) - 1f,  // Компонента X
+                                            (g * 2f) - 1f,  // Компонента Y
+                                            (b * 2f) - 1f   // Компонента Z
+                                            );
 
-                                normal = Vector3.Transform(normal, rotX);   
-                                normal = Vector3.Transform(normal, rotY);   
-                                normal = Vector3.Transform(normal, rotZ);   
+                                        var rotX = Matrix4x4.CreateRotationX(angels.X);
+                                        var rotY = Matrix4x4.CreateRotationX(angels.Y);
+                                        var rotZ = Matrix4x4.CreateRotationX(angels.Z);
 
-                                Vector3 Id = new Vector3(color.R, color.G, color.B);
+                                        normal = Vector3.Transform(normal, rotX);
+                                        normal = Vector3.Transform(normal, rotY);
+                                        normal = Vector3.Transform(normal, rotZ);
+                                    }
+                                   
+                                }
+
+
 
                                 var diffuse = Service.CalcDiffuseLight(normal, lightDir, Id, Service.Kd);
 
@@ -290,9 +300,11 @@ public partial class Form1 : Form
         if (fdOpenModel.ShowDialog() == DialogResult.OK)
         {
             _shouldDraw = false;
-            _modelPath = fdOpenModel.FileName;
+            string _modelPath = fdOpenModel.FileName;
             if (File.Exists(_modelPath))
             {
+                string folder = Path.GetDirectoryName(_modelPath);
+                modelFolder = folder;
                 model_loading();
                 pictureBox1.Invalidate();
             }
@@ -351,6 +363,22 @@ public partial class Form1 : Form
                         break;
                     case Keys.D:
                         Service.Camera = Vector3.Transform(Service.Camera, Matrix4x4.CreateRotationZ(-angel));
+                        break;
+                    case Keys.S:
+                        using (SaveFileDialog saveFileDialog = new SaveFileDialog())
+                        {
+                            saveFileDialog.Filter = "JPEG Image|*.jpg|PNG Image|*.png|BMP Image|*.bmp";
+                            saveFileDialog.Title = "Save Image";
+                            saveFileDialog.FileName = "image";
+
+                            if (saveFileDialog.ShowDialog() == DialogResult.OK)
+                            {
+                                string filePath = saveFileDialog.FileName;
+
+                                // Save the image to the selected file format
+                                pictureBox1.Image.Save(filePath);
+                            }
+                        }
                         break;
                 }
 
@@ -448,7 +476,7 @@ public partial class Form1 : Form
     private void model_loading()
     {
         _shouldDraw = true;
-        ObjParser parser = new ObjParser(_modelPath);
+        ObjParser parser = new ObjParser(modelFolder + modelPref);
         Service.UpdateMatrix();
 
         _vArr = parser.VList.ToArray();
@@ -477,7 +505,34 @@ public partial class Form1 : Form
         Service.TranslatePositions(_vArr, _updateVArr, _fArr, _modelVArr, _ws);
         Service.CalcStuff(_fArr, _modelVArr);
 
+        loadTextures();
+
         wasUpdate = true;
+    }
+
+    private void loadTextures()
+    {
+        diffuseMap?.Dispose();
+        specularMap?.Dispose();
+        specularMap = null;
+        normalMap?.Dispose();
+        normalMap = null;
+
+        string diffuse = modelFolder + diffPref;
+        string norms = modelFolder + normalsPref;
+        string spec = modelFolder + specPref;
+        if (File.Exists(diffuse))
+        {
+            diffuseMap = new Bitmap(diffuse);
+        }
+        if (File.Exists(norms))
+        {
+            normalMap = new Bitmap(norms);
+        }
+        if (File.Exists(spec))
+        {
+            specularMap = new Bitmap(spec);
+        }
     }
 
     private void Form1_Load(object sender, EventArgs e)
@@ -492,8 +547,6 @@ public partial class Form1 : Form
         }
 
         model_loading();
-
-        lbWidth.Text = string.Format($"{diffuseWidth}px + {diffuseWidth}px");
 
         pictureBox1.Invalidate();
     }
