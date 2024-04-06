@@ -142,9 +142,11 @@ public partial class Form1 : Form
                                 var lightDir = Vector3.Normalize(Service.LambertLight - fragV3);
                                 var cameraDir = Vector3.Normalize(Service.Camera - fragV3);
 
-                                var Id = Service.Id;
                                 var normal = interpolatedNormal;
-                                var Ks = Service.Ks;
+
+                                Color Ka = new Color();
+                                Color Ks = new Color();
+
                                 if (diffuseMap != null)
                                 {
                                     textureCoord.X *= diffuseMap.Width;
@@ -152,50 +154,55 @@ public partial class Form1 : Form
 
                                     textureCoord /= textureCoord.Z;
 
-                                    int u = Math.Max(0, Math.Min((int)textureCoord.X, diffuseMap.Height - 1)); // Получение координаты U из textureCoord
-                                    int v = Math.Max(0, Math.Min(diffuseMap.Width - (int)textureCoord.Y, diffuseMap.Width - 1)); // Получение координаты V из textureCoord
+                                    int u = Math.Max(0, Math.Min((int)textureCoord.X, diffuseMap.Height - 1)); // пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ U пїЅпїЅ textureCoord
+                                    int v = Math.Max(0, Math.Min(diffuseMap.Width - (int)textureCoord.Y, diffuseMap.Width - 1)); // пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ V пїЅпїЅ textureCoord
 
-                                    Color color = diffuseMap.GetPixel(u, v);
-                                    Id = new Vector3(color.R, color.G, color.B);
+                                    Ka = diffuseMap.GetPixel(u, v);
+
 
                                     if (specularMap != null)
                                     {
                                         //specular
-                                        Ks = specularMap.GetPixel(u, v).R / 255f;
+                                        Ks = specularMap.GetPixel(u, v);
                                     }
 
                                     if (normalMap != null)
                                     {
                                         //normal
                                         Color normalColor = normalMap.GetPixel(u, v);
-                                        float r = normalColor.R / 255f;  // Компонента R (красный)
-                                        float g = normalColor.G / 255f;  // Компонента G (зеленый)
-                                        float b = normalColor.B / 255f;  // Компонента B (синий)
+                                        float r = normalColor.R / 255f;  // пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ R (пїЅпїЅпїЅпїЅпїЅпїЅпїЅ)
+                                        float g = normalColor.G / 255f;  // пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ G (пїЅпїЅпїЅпїЅпїЅпїЅпїЅ)
+                                        float b = normalColor.B / 255f;  // пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ B (пїЅпїЅпїЅпїЅпїЅ)
                                         normal = new Vector3(
-                                            (r * 2f) - 1f,  // Компонента X
-                                            (g * 2f) - 1f,  // Компонента Y
-                                            (b * 2f) - 1f   // Компонента Z
+                                            (r * 2f) - 1f,  // пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ X
+                                            (g * 2f) - 1f,  // пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ Y
+                                            (b * 2f) - 1f   // пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ Z
                                             );
 
                                         var rotX = Matrix4x4.CreateRotationX(angels.X);
-                                        var rotY = Matrix4x4.CreateRotationX(angels.Y);
-                                        var rotZ = Matrix4x4.CreateRotationX(angels.Z);
+                                        var rotY = Matrix4x4.CreateRotationY(angels.Y);
+                                        var rotZ = Matrix4x4.CreateRotationZ(angels.Z);
 
                                         normal = Vector3.Transform(normal, rotX);
                                         normal = Vector3.Transform(normal, rotY);
                                         normal = Vector3.Transform(normal, rotZ);
                                     }
-                                   
+
                                 }
 
+                                //ka
+                                //ks
 
+                                var v3Ka = ValuesChanger.ApplyGamma(new Vector3(Ka.R, Ka.G, Ka.B), 2.2f);
+                                var v3Ks = ValuesChanger.ApplyGamma(new Vector3(Ks.R, Ks.G, Ks.B), 2.2f);
+                                
 
-                                var diffuse = Service.CalcDiffuseLight(normal, lightDir, Id, Service.Kd);
+                                var phongBg = Service.CalcPhongBg(Service.Ka, new Vector3(v3Ka.X * Service.Ia.X, v3Ka.Y * Service.Ia.Y, v3Ka.Z * Service.Ia.Z) / 255);
+                                var diffuse = Service.CalcDiffuseLight(normal, lightDir, new Vector3(v3Ka.X * Service.Id.X, v3Ka.Y * Service.Id.Y, v3Ka.Z * Service.Id.Z) / 255, Service.Kd);
+                                var spec = Service.CalcSpecLight(interpolatedNormal, cameraDir, lightDir, Service.Ks, new Vector3(v3Ks.X * Service.Is.X, v3Ks.Y * Service.Is.Y, v3Ks.Z * Service.Is.Z) / 255);
 
-                                //var phongBg = Service.CalcPhongBg(Service.Ka, Service.Ia);
-                                var phongBg = Service.CalcPhongBg(Service.Ka, Id);
-                                var spec = Service.CalcSpecLight(normal, cameraDir, lightDir, Ks, Service.Is);
-                                var phongClr = phongBg + diffuse + spec;
+                                
+                                var phongClr = (phongBg + diffuse + spec);
 
                                 phongClr.X = phongClr.X > 255 ? 255 : phongClr.X;
                                 phongClr.Y = phongClr.Y > 255 ? 255 : phongClr.Y;
@@ -203,7 +210,7 @@ public partial class Form1 : Form
 
                                 phongClr = ValuesChanger.ApplyGamma(phongClr, 0.454545f);
 
-                                var nCl = Color.FromArgb((byte)phongClr.X, (byte)phongClr.Y, (byte)phongClr.Z);
+                                var nCl = Color.FromArgb((int)phongClr.X, (int)phongClr.Y, (int)phongClr.Z);
 
                                 Drawing.DrawSimplePoint(bData, bitsPerPixel, scan0, nCl, x, y, z,
                                     _bitmap.Width, _bitmap.Height, _zBuffer);
