@@ -60,7 +60,7 @@ public partial class Form1 : Form
 
     private static float[][] _zBuffer = new float[2000][];
 
-    public static unsafe void DiffuseRastTriangles()
+    public static unsafe void CubeTextures()
     {
         BitmapData bData = _bitmap.LockBits(new Rectangle(0, 0, _bitmap.Width, _bitmap.Height),
                  ImageLockMode.ReadWrite, _bitmap.PixelFormat);
@@ -97,8 +97,8 @@ public partial class Form1 : Form
                     Vector3 n2 = Service.VertexNormals[indexes[i] - 1];
                     Vector3 n3 = Service.VertexNormals[indexes[i + 1] - 1];
 
-                    var minX = Math.Min(f1.X, Math.Min(f2.X, f3.X));
-                    var maxX = Math.Max(f1.X, Math.Max(f2.X, f3.X));
+                    var minX = Math.Min(f1.X, Math.Min(f2.X, f3.X)); // Привет, Андрей
+                    var maxX = Math.Max(f1.X, Math.Max(f2.X, f3.X)); // Как дела?
                     var minY = Math.Min(f1.Y, Math.Min(f2.Y, f3.Y));
                     var maxY = Math.Max(f1.Y, Math.Max(f2.Y, f3.Y));
 
@@ -239,6 +239,9 @@ public partial class Form1 : Form
                 break;
             case 4:
                 DiffuseRastTriangles();
+                break;
+            case 5:
+                CubeTextures();
                 break;
             default:
                 Drawing.DrawingFullGrid(_bitmap, Service.SelectedColor, _fArr, _updateVArr,
@@ -503,6 +506,165 @@ public partial class Form1 : Form
         loadTextures();
 
         wasUpdate = true;
+    }
+
+    public static unsafe void DiffuseRastTriangles()
+    {
+        BitmapData bData = _bitmap.LockBits(new Rectangle(0, 0, _bitmap.Width, _bitmap.Height),
+                 ImageLockMode.ReadWrite, _bitmap.PixelFormat);
+        var bitsPerPixel = (byte)Image.GetPixelFormatSize(bData.PixelFormat);
+        var scan0 = (byte*)bData.Scan0;
+
+
+        for (int j = 0; j < _fArr.Length; j++)
+        {
+            var temp = _modelVArr[_fArr[j][0] - 1];
+            Vector3 n = new Vector3(temp.X, temp.Y, temp.Z);
+            var normalCamView = Vector3.Normalize(Service.Camera - n);
+
+            if (Vector3.Dot(Service.VPolygonNormals[j], normalCamView) > 0)
+            {
+                var indexes = _fArr[j];
+                var tIndexes = _fvtList[j];
+
+                Vector4 f1 = _updateVArr[indexes[0] - 1];
+                Vector3 f1Vt = _vtList[tIndexes[0] - 1] / _ws[indexes[0] - 1];
+                Vector3 n1 = Service.VertexNormals[indexes[0] - 1];
+                Vector4 f1Mode = _modelVArr[indexes[0] - 1];
+
+                for (var i = 1; i <= indexes.Length - 2; i++)
+                {
+                    Vector4 f2 = _updateVArr[indexes[i] - 1];
+                    Vector4 f2Model = _modelVArr[indexes[i] - 1];
+                    Vector3 f2Vt = _vtList[tIndexes[i] - 1] / _ws[indexes[i] - 1];
+
+                    Vector4 f3 = _updateVArr[indexes[i + 1] - 1];
+                    Vector4 f3Model = _modelVArr[indexes[i + 1] - 1];
+                    Vector3 f3Vt = _vtList[tIndexes[i + 1] - 1] / _ws[indexes[i + 1] - 1];
+
+                    Vector3 n2 = Service.VertexNormals[indexes[i] - 1];
+                    Vector3 n3 = Service.VertexNormals[indexes[i + 1] - 1];
+
+                    var minX = Math.Min(f1.X, Math.Min(f2.X, f3.X));
+                    var maxX = Math.Max(f1.X, Math.Max(f2.X, f3.X));
+                    var minY = Math.Min(f1.Y, Math.Min(f2.Y, f3.Y));
+                    var maxY = Math.Max(f1.Y, Math.Max(f2.Y, f3.Y));
+
+                    var startX = (int)Math.Ceiling(minX);
+                    var endX = (int)Math.Floor(maxX);
+                    var startY = (int)Math.Ceiling(minY);
+                    var endY = (int)Math.Floor(maxY);
+
+                    for (var y = startY; y <= endY; y++)
+                    {
+                        for (var x = startX; x <= endX; x++)
+                        {
+                            if (Translations.IsPointInTriangle(x, y, f1, f2, f3))
+                            {
+                                Vector3 barycentricCoords =
+                                    Translations.CalculateBarycentricCoordinates(x, y, f1, f2, f3);
+
+                                var z = barycentricCoords.X * f1.Z + barycentricCoords.Y * f2.Z +
+                                        barycentricCoords.Z * f3.Z;
+
+
+                                Vector3 interpolatedNormal = barycentricCoords.X * n1 + barycentricCoords.Y * n2 +
+                                                             barycentricCoords.Z * n3;
+
+                                interpolatedNormal = Vector3.Normalize(interpolatedNormal);
+
+                                Vector4 frag = barycentricCoords.X * f1Mode + barycentricCoords.Y * f2Model +
+                                               barycentricCoords.Z * f3Model;
+
+                                Vector3 fragV3 = new Vector3(frag.X, frag.Y, frag.Z);
+
+                                Vector3 textureCoord = barycentricCoords.X * f1Vt + barycentricCoords.Y * f2Vt +
+                                   barycentricCoords.Z * f3Vt;
+
+                                if (textureCoord.X > 1 || textureCoord.Y > 1)
+                                {
+                                    throw new Exception("Index out of real");
+                                }
+
+                                var lightDir = Vector3.Normalize(Service.LambertLight - fragV3);
+                                var cameraDir = Vector3.Normalize(Service.Camera - fragV3);
+
+                                var normal = interpolatedNormal;
+
+                                Vector3 Ia = new Vector3();
+                                Vector3 Is = new Vector3();
+
+                                if (diffuseMap != null)
+                                {
+                                    textureCoord.X *= diffuseMap.Width;
+                                    textureCoord.Y *= diffuseMap.Height;
+
+                                    textureCoord /= textureCoord.Z;
+
+                                    int u = Math.Max(0, Math.Min((int)textureCoord.X, diffuseMap.Height - 1)); // ��������� ���������� U �� textureCoord
+                                    int v = Math.Max(0, Math.Min(diffuseMap.Width - (int)textureCoord.Y, diffuseMap.Width - 1)); // ��������� ���������� V �� textureCoord
+
+                                    Ia = Service.clrToV3(diffuseMap.GetPixel(u, v));
+
+
+                                    if (specularMap != null)
+                                    {
+                                        //specular
+                                        Is = Service.clrToV3(specularMap.GetPixel(u, v));
+                                    }
+
+                                    if (normalMap != null)
+                                    {
+                                        //normal
+                                        Color normalColor = normalMap.GetPixel(u, v);
+                                        float r = normalColor.R / 255f;  // ���������� R (�������)
+                                        float g = normalColor.G / 255f;  // ���������� G (�������)
+                                        float b = normalColor.B / 255f;  // ���������� B (�����)
+                                        normal = new Vector3(
+                                            (r * 2f) - 1f,  // ���������� X
+                                            (g * 2f) - 1f,  // ���������� Y
+                                            (b * 2f) - 1f   // ���������� Z
+                                            );
+
+                                        var rotX = Matrix4x4.CreateRotationX(angels.X);
+                                        var rotY = Matrix4x4.CreateRotationY(angels.Y);
+                                        var rotZ = Matrix4x4.CreateRotationZ(angels.Z);
+
+                                        normal = Vector3.Transform(normal, rotX);
+                                        normal = Vector3.Transform(normal, rotY);
+                                        normal = Vector3.Transform(normal, rotZ);
+                                    }
+
+                                }
+
+                                Ia = ValuesChanger.ApplyGamma(Ia, 2.2f);
+                                Is = ValuesChanger.ApplyGamma(Is, 2.2f);
+
+
+                                var phongBg = Service.CalcPhongBg(Service.Ka, Service.multiplyClrs(Service.Ia, Ia));
+                                var diffuse = Service.CalcDiffuseLight(normal, lightDir, Service.multiplyClrs(Service.Id, Ia), Service.Kd);
+                                var spec = Service.CalcSpecLight(normal, cameraDir, lightDir, Service.Ks, Service.multiplyClrs(Service.Is, Is));
+
+                                var phongClr = phongBg + diffuse + spec;
+
+                                phongClr.X = phongClr.X > 1 ? 1 : phongClr.X;
+                                phongClr.Y = phongClr.Y > 1 ? 1 : phongClr.Y;
+                                phongClr.Z = phongClr.Z > 1 ? 1 : phongClr.Z;
+
+                                phongClr = ValuesChanger.ApplyGamma(phongClr, 0.454545f);
+
+                                Drawing.DrawSimplePoint(bData, bitsPerPixel, scan0, phongClr * 255, x, y, z,
+                                    _bitmap.Width, _bitmap.Height, _zBuffer);
+
+                            }
+                        }
+                    }
+                }
+
+            }
+        }
+
+        _bitmap.UnlockBits(bData);
     }
 
     private void loadTextures()
