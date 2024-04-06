@@ -7,22 +7,22 @@ namespace Akg.ValueChanger
     {
         private Form1 parent;
         //Background color
-        private static Vector3 vBg = new Vector3(0);
+        private static Vector3 vBg = new Vector3(0.0f);
 
         //Color for flat model or Grid
-        private static Vector3 vSc = new Vector3(192, 64, 192);
+        private static Vector3 vSc = new Vector3(0.76f, 0.25f, 0.76f);
 
         //Camera position
         public static Vector3 Camera = new Vector3(1, 1, 3);
         public static Vector3 Target = new Vector3(0, 0, 0);
 
         //Light pos
-        private static Vector3 Light = new Vector3(20, 20, 2);
+        private static Vector3 Light = new Vector3(3, 3, 3);
 
         //Colors for Phong Lightning
-        private static Vector3 vIa = new Vector3(16, 16, 16);
-        private static Vector3 vId = new Vector3(192, 64, 192);
-        private static Vector3 vIs = new Vector3(255);
+        private static Vector3 vIa = new Vector3(0.06f);
+        private static Vector3 vId = new Vector3(1);
+        private static Vector3 vIs = new Vector3(1);
 
         //Phong Koefs
         private static float Ka = 0.2f;
@@ -37,14 +37,9 @@ namespace Akg.ValueChanger
             InitializeComponent();
 
             //Bg Color
-            tbBgR.Text = vBg.X.ToString(CultureInfo.InvariantCulture);
-            tbBgG.Text = vBg.Y.ToString(CultureInfo.InvariantCulture);
-            tbBgB.Text = vBg.Z.ToString(CultureInfo.InvariantCulture);
-
+            tbBg.Text = v3ToText(vBg);
             //Selected Color
-            tbSCR.Text = vSc.X.ToString(CultureInfo.InvariantCulture);
-            tbSCG.Text = vSc.Y.ToString(CultureInfo.InvariantCulture);
-            tbSCB.Text = vSc.Z.ToString(CultureInfo.InvariantCulture);
+            tbSC.Text = v3ToText(vSc);
 
             //Light Pos
             tbLightX.Text = Light.X.ToString(CultureInfo.InvariantCulture);
@@ -52,20 +47,14 @@ namespace Akg.ValueChanger
             tbLightZ.Text = Light.Z.ToString(CultureInfo.InvariantCulture);
 
             //Phong Bg color
-            tbIaR.Text = vIa.X.ToString(CultureInfo.InvariantCulture);
-            tbIaG.Text = vIa.Y.ToString(CultureInfo.InvariantCulture);
-            tbIaB.Text = vIa.Z.ToString(CultureInfo.InvariantCulture);
+            tbIa.Text = v3ToText(vIa);
 
             //Phong Diffuse color
-            tbIdR.Text = vId.X.ToString(CultureInfo.InvariantCulture);
-            tbIdG.Text = vId.Y.ToString(CultureInfo.InvariantCulture);
-            tbIdB.Text = vId.Z.ToString(CultureInfo.InvariantCulture);
-
+            tbId.Text = v3ToText(vId);
+            
             //Phong Specular color
-            tbIsR.Text = vIs.X.ToString(CultureInfo.InvariantCulture);
-            tbIsG.Text = vIs.Y.ToString(CultureInfo.InvariantCulture);
-            tbIsB.Text = vIs.Z.ToString(CultureInfo.InvariantCulture);
-
+            tbIs.Text = v3ToText(vIs);
+            
             //Camera position
             tbCamX.Text = Camera.X.ToString(CultureInfo.InvariantCulture);
             tbCamY.Text = Camera.Y.ToString(CultureInfo.InvariantCulture);
@@ -91,8 +80,8 @@ namespace Akg.ValueChanger
 
         private static void UpdateColors()
         {
-            Service.SelectedColor = Color.FromArgb((int)vSc.X, (int)vSc.Y, (int)vSc.Z);
-            Service.BgColor = Color.FromArgb((int)vBg.X, (int)vBg.Y, (int)vBg.Z);
+            Service.SelectedColor = vSc;
+            Service.BgColor = vBg;
             Service.Ia = ApplyGamma(vIa, 2.2f);
             Service.Id = ApplyGamma(vId, 2.2f);
             Service.Is = ApplyGamma(vIs, 2.2f);
@@ -105,32 +94,63 @@ namespace Akg.ValueChanger
             Service.Target = Target;
         }
 
+
+
         public static Vector3 ApplyGamma(Vector3 color, float gamma)
         {
-            color /= 255;
-
             color.X = (float)Math.Pow(color.X, gamma);
             color.Y = (float)Math.Pow(color.Y, gamma);
             color.Z = (float)Math.Pow(color.Z, gamma);
 
-            color *= 255;
-
             return color;
+        }
+
+        private Vector3 textToV3(string txt)
+        {
+            string[] parts = txt.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            if (parts.Length == 1) {
+                return new Vector3(float.Parse(parts[0], CultureInfo.InvariantCulture.NumberFormat));
+            }
+            else
+            {
+                return new Vector3(
+                float.Parse(parts[0], CultureInfo.InvariantCulture.NumberFormat),
+                float.Parse(parts[1], CultureInfo.InvariantCulture.NumberFormat),
+                float.Parse(parts[2], CultureInfo.InvariantCulture.NumberFormat)
+            );
+            }
+        }
+
+        private string v3ToText(Vector3 v3)
+        {
+            CultureInfo culture = new CultureInfo("en-US");
+            culture.NumberFormat.NumberDecimalSeparator = ".";
+
+            if (v3.X == v3.Y && v3.Y == v3.Z)
+            {
+                return v3.X.ToString("F2", culture);
+            }
+            else
+            {
+                string result = string.Format(culture, "{0:F2} {1:F2} {2:F2}", v3.X, v3.Y, v3.Z);
+                return result;
+            }
         }
 
         private void button1_Click(object sender, EventArgs e)
         {
-            vBg = new Vector3(int.Parse(tbBgR.Text), int.Parse(tbBgG.Text), int.Parse(tbBgB.Text));
-            vSc = new Vector3(int.Parse(tbSCR.Text), int.Parse(tbSCG.Text), int.Parse(tbSCB.Text));
+            vBg = textToV3(tbBg.Text);
+            vSc = textToV3(tbSC.Text);
+
             Light = new Vector3(
                 float.Parse(tbLightX.Text, CultureInfo.InvariantCulture.NumberFormat),
                 float.Parse(tbLightY.Text, CultureInfo.InvariantCulture.NumberFormat),
                 float.Parse(tbLightZ.Text, CultureInfo.InvariantCulture.NumberFormat)
             );
 
-            vIa = new Vector3(int.Parse(tbIaR.Text), int.Parse(tbIaG.Text), int.Parse(tbIaB.Text));
-            vId = new Vector3(int.Parse(tbIdR.Text), int.Parse(tbIdG.Text), int.Parse(tbIdB.Text));
-            vIs = new Vector3(int.Parse(tbIsR.Text), int.Parse(tbIsG.Text), int.Parse(tbIsB.Text));
+            vIa = textToV3(tbIa.Text);
+            vId = textToV3(tbId.Text);
+            vIs = textToV3(tbIs.Text);
 
             //Camera
             Camera = new Vector3(

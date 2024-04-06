@@ -44,21 +44,11 @@ namespace Akg.ValueChanger
             lbKs = new Label();
             lbSpecAlpha = new Label();
             button1 = new Button();
-            tbBgR = new TextBox();
-            tbBgB = new TextBox();
-            tbBgG = new TextBox();
-            tbSCG = new TextBox();
-            tbSCB = new TextBox();
-            tbSCR = new TextBox();
-            tbIaG = new TextBox();
-            tbIaB = new TextBox();
-            tbIaR = new TextBox();
-            tbIdG = new TextBox();
-            tbIdB = new TextBox();
-            tbIdR = new TextBox();
-            tbIsG = new TextBox();
-            tbIsB = new TextBox();
-            tbIsR = new TextBox();
+            tbBg = new TextBox();
+            tbSC = new TextBox();
+            tbIa = new TextBox();
+            tbId = new TextBox();
+            tbIs = new TextBox();
             tbKa = new TextBox();
             tbKd = new TextBox();
             tbKs = new TextBox();
@@ -182,125 +172,45 @@ namespace Akg.ValueChanger
             button1.UseVisualStyleBackColor = true;
             button1.Click += button1_Click;
             // 
-            // tbBgR
+            // tbBg
             // 
-            tbBgR.Location = new Point(219, 12);
-            tbBgR.Margin = new Padding(3, 4, 3, 4);
-            tbBgR.Name = "tbBgR";
-            tbBgR.Size = new Size(50, 27);
-            tbBgR.TabIndex = 11;
+            tbBg.Location = new Point(219, 12);
+            tbBg.Margin = new Padding(3, 4, 3, 4);
+            tbBg.Name = "tbBg";
+            tbBg.Size = new Size(162, 27);
+            tbBg.TabIndex = 11;
             // 
-            // tbBgB
+            // tbSC
             // 
-            tbBgB.Location = new Point(331, 12);
-            tbBgB.Margin = new Padding(3, 4, 3, 4);
-            tbBgB.Name = "tbBgB";
-            tbBgB.Size = new Size(50, 27);
-            tbBgB.TabIndex = 12;
+            tbSC.Location = new Point(219, 54);
+            tbSC.Margin = new Padding(3, 4, 3, 4);
+            tbSC.Name = "tbSC";
+            tbSC.Size = new Size(162, 27);
+            tbSC.TabIndex = 14;
             // 
-            // tbBgG
+            // tbIa
             // 
-            tbBgG.Location = new Point(275, 12);
-            tbBgG.Margin = new Padding(3, 4, 3, 4);
-            tbBgG.Name = "tbBgG";
-            tbBgG.Size = new Size(50, 27);
-            tbBgG.TabIndex = 13;
+            tbIa.Location = new Point(219, 95);
+            tbIa.Margin = new Padding(3, 4, 3, 4);
+            tbIa.Name = "tbIa";
+            tbIa.Size = new Size(162, 27);
+            tbIa.TabIndex = 17;
             // 
-            // tbSCG
+            // tbId
             // 
-            tbSCG.Location = new Point(275, 54);
-            tbSCG.Margin = new Padding(3, 4, 3, 4);
-            tbSCG.Name = "tbSCG";
-            tbSCG.Size = new Size(50, 27);
-            tbSCG.TabIndex = 16;
+            tbId.Location = new Point(219, 136);
+            tbId.Margin = new Padding(3, 4, 3, 4);
+            tbId.Name = "tbId";
+            tbId.Size = new Size(162, 27);
+            tbId.TabIndex = 20;
             // 
-            // tbSCB
+            // tbIs
             // 
-            tbSCB.Location = new Point(331, 54);
-            tbSCB.Margin = new Padding(3, 4, 3, 4);
-            tbSCB.Name = "tbSCB";
-            tbSCB.Size = new Size(50, 27);
-            tbSCB.TabIndex = 15;
-            // 
-            // tbSCR
-            // 
-            tbSCR.Location = new Point(219, 54);
-            tbSCR.Margin = new Padding(3, 4, 3, 4);
-            tbSCR.Name = "tbSCR";
-            tbSCR.Size = new Size(50, 27);
-            tbSCR.TabIndex = 14;
-            // 
-            // tbIaG
-            // 
-            tbIaG.Location = new Point(275, 95);
-            tbIaG.Margin = new Padding(3, 4, 3, 4);
-            tbIaG.Name = "tbIaG";
-            tbIaG.Size = new Size(50, 27);
-            tbIaG.TabIndex = 19;
-            // 
-            // tbIaB
-            // 
-            tbIaB.Location = new Point(331, 95);
-            tbIaB.Margin = new Padding(3, 4, 3, 4);
-            tbIaB.Name = "tbIaB";
-            tbIaB.Size = new Size(50, 27);
-            tbIaB.TabIndex = 18;
-            // 
-            // tbIaR
-            // 
-            tbIaR.Location = new Point(219, 95);
-            tbIaR.Margin = new Padding(3, 4, 3, 4);
-            tbIaR.Name = "tbIaR";
-            tbIaR.Size = new Size(50, 27);
-            tbIaR.TabIndex = 17;
-            // 
-            // tbIdG
-            // 
-            tbIdG.Location = new Point(275, 136);
-            tbIdG.Margin = new Padding(3, 4, 3, 4);
-            tbIdG.Name = "tbIdG";
-            tbIdG.Size = new Size(50, 27);
-            tbIdG.TabIndex = 22;
-            // 
-            // tbIdB
-            // 
-            tbIdB.Location = new Point(331, 136);
-            tbIdB.Margin = new Padding(3, 4, 3, 4);
-            tbIdB.Name = "tbIdB";
-            tbIdB.Size = new Size(50, 27);
-            tbIdB.TabIndex = 21;
-            // 
-            // tbIdR
-            // 
-            tbIdR.Location = new Point(219, 136);
-            tbIdR.Margin = new Padding(3, 4, 3, 4);
-            tbIdR.Name = "tbIdR";
-            tbIdR.Size = new Size(50, 27);
-            tbIdR.TabIndex = 20;
-            // 
-            // tbIsG
-            // 
-            tbIsG.Location = new Point(275, 178);
-            tbIsG.Margin = new Padding(3, 4, 3, 4);
-            tbIsG.Name = "tbIsG";
-            tbIsG.Size = new Size(50, 27);
-            tbIsG.TabIndex = 25;
-            // 
-            // tbIsB
-            // 
-            tbIsB.Location = new Point(331, 178);
-            tbIsB.Margin = new Padding(3, 4, 3, 4);
-            tbIsB.Name = "tbIsB";
-            tbIsB.Size = new Size(50, 27);
-            tbIsB.TabIndex = 24;
-            // 
-            // tbIsR
-            // 
-            tbIsR.Location = new Point(219, 178);
-            tbIsR.Margin = new Padding(3, 4, 3, 4);
-            tbIsR.Name = "tbIsR";
-            tbIsR.Size = new Size(50, 27);
-            tbIsR.TabIndex = 23;
+            tbIs.Location = new Point(219, 178);
+            tbIs.Margin = new Padding(3, 4, 3, 4);
+            tbIs.Name = "tbIs";
+            tbIs.Size = new Size(162, 27);
+            tbIs.TabIndex = 23;
             // 
             // tbKa
             // 
@@ -508,21 +418,11 @@ namespace Akg.ValueChanger
             Controls.Add(tbKs);
             Controls.Add(tbKd);
             Controls.Add(tbKa);
-            Controls.Add(tbIsG);
-            Controls.Add(tbIsB);
-            Controls.Add(tbIsR);
-            Controls.Add(tbIdG);
-            Controls.Add(tbIdB);
-            Controls.Add(tbIdR);
-            Controls.Add(tbIaG);
-            Controls.Add(tbIaB);
-            Controls.Add(tbIaR);
-            Controls.Add(tbSCG);
-            Controls.Add(tbSCB);
-            Controls.Add(tbSCR);
-            Controls.Add(tbBgG);
-            Controls.Add(tbBgB);
-            Controls.Add(tbBgR);
+            Controls.Add(tbIs);
+            Controls.Add(tbId);
+            Controls.Add(tbIa);
+            Controls.Add(tbSC);
+            Controls.Add(tbBg);
             Controls.Add(button1);
             Controls.Add(lbSpecAlpha);
             Controls.Add(lbKs);
@@ -560,23 +460,12 @@ namespace Akg.ValueChanger
         public System.Windows.Forms.TextBox tbKd;
 
         public System.Windows.Forms.TextBox tbKa;
+        public System.Windows.Forms.TextBox tbIa;
+        public System.Windows.Forms.TextBox tbId;
+        public System.Windows.Forms.TextBox tbIs;
 
-        public System.Windows.Forms.TextBox tbIaG;
-        public System.Windows.Forms.TextBox tbIaB;
-        public System.Windows.Forms.TextBox tbIaR;
-        public System.Windows.Forms.TextBox tbIdG;
-        public System.Windows.Forms.TextBox tbIdB;
-        public System.Windows.Forms.TextBox tbIdR;
-        public System.Windows.Forms.TextBox tbIsG;
-        public System.Windows.Forms.TextBox tbIsB;
-        public System.Windows.Forms.TextBox tbIsR;
-
-        public System.Windows.Forms.TextBox tbBgR;
-        public System.Windows.Forms.TextBox tbBgB;
-        public System.Windows.Forms.TextBox tbBgG;
-        public System.Windows.Forms.TextBox tbSCG;
-        public System.Windows.Forms.TextBox tbSCB;
-        public System.Windows.Forms.TextBox tbSCR;
+        public System.Windows.Forms.TextBox tbBg;
+        public System.Windows.Forms.TextBox tbSC;
 
         private System.Windows.Forms.Label lbBgColor;
         private System.Windows.Forms.Label lbSelectedColor;

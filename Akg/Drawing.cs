@@ -81,17 +81,16 @@ namespace Akg
                                     var phongBg = Service.CalcPhongBg(Service.Ka, Service.Ia);
                                     var diffuse = Service.CalcDiffuseLight(interpolatedNormal, lightDir, Service.Id, Service.Kd);
                                     var spec = Service.CalcSpecLight(interpolatedNormal, cameraDir, lightDir, Service.Ks, Service.Is);
+
                                     var phongClr = phongBg + diffuse + spec;
 
-                                    phongClr.X = phongClr.X > 255 ? 255 : phongClr.X;
-                                    phongClr.Y = phongClr.Y > 255 ? 255 : phongClr.Y;
-                                    phongClr.Z = phongClr.Z > 255 ? 255 : phongClr.Z;
+                                    phongClr.X = phongClr.X > 1 ? 1 : phongClr.X;
+                                    phongClr.Y = phongClr.Y > 1 ? 1 : phongClr.Y;
+                                    phongClr.Z = phongClr.Z > 1 ? 1 : phongClr.Z;
 
                                     phongClr = ValuesChanger.ApplyGamma(phongClr, 0.454545f);
 
-                                    var nCl = Color.FromArgb((byte)phongClr.X, (byte)phongClr.Y, (byte)phongClr.Z);
-
-                                    DrawSimplePoint(bData, bitsPerPixel, scan0, nCl, x, y, z,
+                                    DrawSimplePoint(bData, bitsPerPixel, scan0, phongClr * 255, x, y, z,
                                         _bitmap.Width, _bitmap.Height, zBuffer);
 
                                 }
@@ -104,9 +103,10 @@ namespace Akg
             _bitmap.UnlockBits(bData);
         }
 
-        public static unsafe void RastTrianglesLambert(Bitmap _bitmap, Color clr,
+        public static unsafe void RastTrianglesLambert(Bitmap _bitmap, Vector3 clr,
             int[][] fArr, Vector4[] modelVArr, Vector4[] updateVArr, int bWidth, int bHeight, float[][] zBuffer)
         {
+
             BitmapData bData = _bitmap.LockBits(new Rectangle(0, 0, _bitmap.Width, _bitmap.Height), ImageLockMode.ReadWrite, _bitmap.PixelFormat);
             var bitsPerPixel = (byte)Image.GetPixelFormatSize(bData.PixelFormat);
             var scan0 = (byte*)bData.Scan0;
@@ -121,8 +121,7 @@ namespace Akg
                     var intensity = Math.Abs(Vector3.Dot(Service.VPolygonNormals[j],
                         Vector3.Normalize((Service.LambertLight - n))));
 
-                    Color nC = Color.FromArgb((int)(clr.R * intensity), (int)(clr.G * intensity),
-                        (int)(clr.B * intensity));
+                    var tempClr = clr * 255 * intensity;
 
                     var indexes = fArr[j];
 
@@ -156,8 +155,8 @@ namespace Akg
                                     // Расчет значения z с использованием барицентрических координат
                                     var z = barycentricCoords.X * f1.Z + barycentricCoords.Y * f2.Z +
                                             barycentricCoords.Z * f3.Z;
-                                    //DrawPoint(bData, bitsPerPixel, scan0, new Pen(nC), x, y, z, interpolatedNormal);
-                                    DrawSimplePoint(bData, bitsPerPixel, scan0, nC, x, y, z,
+                                    
+                                    DrawSimplePoint(bData, bitsPerPixel, scan0, tempClr, x, y, z,
                                         bWidth, bHeight, zBuffer);
                                 }
                             }
@@ -169,9 +168,11 @@ namespace Akg
             _bitmap.UnlockBits(bData);
         }
 
-        public static unsafe void DrawingFullGrid(Bitmap _bitmap, Color clr,
+        public static unsafe void DrawingFullGrid(Bitmap _bitmap, Vector3 clr,
             int[][] fArr, Vector4[] updateVArr, int bWidth, int bHeight, float[][] zBuffer)
         {
+            clr *= 255;
+
             BitmapData bData = _bitmap.LockBits(new Rectangle(0, 0, _bitmap.Width, _bitmap.Height), ImageLockMode.ReadWrite, _bitmap.PixelFormat);
             var bitsPerPixel = (byte)Image.GetPixelFormatSize(bData.PixelFormat);
             var scan0 = (byte*)bData.Scan0;
@@ -212,7 +213,7 @@ namespace Akg
             _bitmap.UnlockBits(bData);
         }
 
-        public static unsafe void DrawLineBresenham(BitmapData bData, byte bitsPerPixel, byte* scan0, Color clr,
+        public static unsafe void DrawLineBresenham(BitmapData bData, byte bitsPerPixel, byte* scan0, Vector3 clr,
             PointF point1, PointF point2, float z, int width, int height, float[][] zBuffer)
         {
             var x0 = (int)Math.Round(point1.X);
@@ -248,9 +249,10 @@ namespace Akg
             }
         }
 
-        public static unsafe void DrawSimplePoint(BitmapData bData, byte bitsPerPixel, byte* scan0, Color cl, int x,
+        public static unsafe void DrawSimplePoint(BitmapData bData, byte bitsPerPixel, byte* scan0, Vector3 cl, int x,
             int y, float z, int width, int height, float[][] zBuffer)
         {
+
             if (x > 0 && x + 1 < width && y > 0 && y + 1 < height && zBuffer[x][y] > z)
             {
                 zBuffer[x][y] = z;
@@ -259,9 +261,9 @@ namespace Akg
                 if (data != null)
                 {
                     // Примените интенсивность освещения к цвету пикселя
-                    data[0] = cl.B;
-                    data[1] = cl.G;
-                    data[2] = cl.R;
+                    data[0] = (byte)cl.Z;
+                    data[1] = (byte)cl.Y;
+                    data[2] = (byte)cl.X;
                 }
             }
         }

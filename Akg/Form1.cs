@@ -59,7 +59,6 @@ public partial class Form1 : Form
     }
 
     private static float[][] _zBuffer = new float[2000][];
-    private static Color[][] clrs = new Color[2000][];
 
     public static unsafe void DiffuseRastTriangles()
     {
@@ -144,8 +143,8 @@ public partial class Form1 : Form
 
                                 var normal = interpolatedNormal;
 
-                                Color Ka = new Color();
-                                Color Ks = new Color();
+                                Vector3 Ia = new Vector3();
+                                Vector3 Is = new Vector3();
 
                                 if (diffuseMap != null)
                                 {
@@ -157,13 +156,13 @@ public partial class Form1 : Form
                                     int u = Math.Max(0, Math.Min((int)textureCoord.X, diffuseMap.Height - 1)); // ��������� ���������� U �� textureCoord
                                     int v = Math.Max(0, Math.Min(diffuseMap.Width - (int)textureCoord.Y, diffuseMap.Width - 1)); // ��������� ���������� V �� textureCoord
 
-                                    Ka = diffuseMap.GetPixel(u, v);
+                                    Ia = Service.clrToV3(diffuseMap.GetPixel(u, v));
 
 
                                     if (specularMap != null)
                                     {
                                         //specular
-                                        Ks = specularMap.GetPixel(u, v);
+                                        Is = Service.clrToV3(specularMap.GetPixel(u, v));
                                     }
 
                                     if (normalMap != null)
@@ -190,29 +189,23 @@ public partial class Form1 : Form
 
                                 }
 
-                                //ka
-                                //ks
+                                Ia = ValuesChanger.ApplyGamma(Ia, 2.2f);
+                                Is = ValuesChanger.ApplyGamma(Is, 2.2f);
 
-                                var v3Ka = ValuesChanger.ApplyGamma(new Vector3(Ka.R, Ka.G, Ka.B), 2.2f);
-                                var v3Ks = ValuesChanger.ApplyGamma(new Vector3(Ks.R, Ks.G, Ks.B), 2.2f);
-                                
 
-                                var phongBg = Service.CalcPhongBg(Service.Ka, new Vector3(v3Ka.X * Service.Ia.X, v3Ka.Y * Service.Ia.Y, v3Ka.Z * Service.Ia.Z) / 255);
-                                var diffuse = Service.CalcDiffuseLight(normal, lightDir, new Vector3(v3Ka.X * Service.Id.X, v3Ka.Y * Service.Id.Y, v3Ka.Z * Service.Id.Z) / 255, Service.Kd);
-                                var spec = Service.CalcSpecLight(interpolatedNormal, cameraDir, lightDir, Service.Ks, new Vector3(v3Ks.X * Service.Is.X, v3Ks.Y * Service.Is.Y, v3Ks.Z * Service.Is.Z) / 255);
+                                var phongBg = Service.CalcPhongBg(Service.Ka, Service.multiplyClrs(Service.Ia, Ia));
+                                var diffuse = Service.CalcDiffuseLight(normal, lightDir, Service.multiplyClrs(Service.Id, Ia), Service.Kd);
+                                var spec = Service.CalcSpecLight(normal, cameraDir, lightDir, Service.Ks, Service.multiplyClrs(Service.Is, Is));
 
-                                
-                                var phongClr = (phongBg + diffuse + spec);
+                                var phongClr = phongBg + diffuse + spec;
 
-                                phongClr.X = phongClr.X > 255 ? 255 : phongClr.X;
-                                phongClr.Y = phongClr.Y > 255 ? 255 : phongClr.Y;
-                                phongClr.Z = phongClr.Z > 255 ? 255 : phongClr.Z;
+                                phongClr.X = phongClr.X > 1 ? 1 : phongClr.X;
+                                phongClr.Y = phongClr.Y > 1 ? 1 : phongClr.Y;
+                                phongClr.Z = phongClr.Z > 1 ? 1 : phongClr.Z;
 
                                 phongClr = ValuesChanger.ApplyGamma(phongClr, 0.454545f);
 
-                                var nCl = Color.FromArgb((int)phongClr.X, (int)phongClr.Y, (int)phongClr.Z);
-
-                                Drawing.DrawSimplePoint(bData, bitsPerPixel, scan0, nCl, x, y, z,
+                                Drawing.DrawSimplePoint(bData, bitsPerPixel, scan0, phongClr * 255, x, y, z,
                                     _bitmap.Width, _bitmap.Height, _zBuffer);
 
                             }
@@ -227,11 +220,12 @@ public partial class Form1 : Form
     }
 
 
+
     private static unsafe void DrawPoints()
     {
         using (Graphics g = Graphics.FromImage(_bitmap))
         {
-            g.Clear(Service.BgColor);
+            g.Clear(Service.v3ToClr(Service.BgColor * 255));
         }
 
         switch (Service.Mode)
@@ -269,7 +263,6 @@ public partial class Form1 : Form
             for (var j = 0; j < _size.Height; j++)
             {
                 _zBuffer[i][j] = 1.0f;
-                clrs[i][j] = Service.BgColor;
             }
         }
     }
@@ -285,11 +278,6 @@ public partial class Form1 : Form
 
         int width = _bitmap.Width;
         int height = _bitmap.Height;
-        clrs = new Color[width][];
-        for (int i = 0; i < clrs.Length; i++)
-        {
-            clrs[i] = new Color[height];
-        }
 
         if (_shouldDraw)
         {
@@ -546,12 +534,6 @@ public partial class Form1 : Form
     {
         int width = ClientSize.Width;
         int height = ClientSize.Height;
-
-        clrs = new Color[width][];
-        for (int i = 0; i < clrs.Length; i++)
-        {
-            clrs[i] = new Color[height];
-        }
 
         model_loading();
 

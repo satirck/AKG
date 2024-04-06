@@ -39,8 +39,8 @@ namespace Akg
         public static int Mode = 1;
 
         //Graphics vars
-        public static Color SelectedColor;
-        public static Color BgColor;
+        public static Vector3 SelectedColor;
+        public static Vector3 BgColor;
         public static Vector3 Ia;
         public static Vector3 Id;
         public static Vector3 Is;
@@ -48,6 +48,31 @@ namespace Akg
         public static float Kd;
         public static float Ks;
         public static float Alpha;
+
+        public static Vector3 clrToV3(Color color)
+        {
+            var v3 = new Vector3(color.R, color.G, color.B);
+            return v3 / 255;
+        }
+
+        public static Vector3 v3CorrectV3AsClr(Vector3 v3)
+        {
+            v3.X = v3.X > 255 ? 255 : v3.X;
+            v3.Y = v3.Y > 255 ? 255 : v3.Y;
+            v3.Z = v3.Z > 255 ? 255 : v3.Z;
+
+            return v3;
+        }
+
+        public static Color v3ToClr(Vector3 v3)
+        {
+            return Color.FromArgb((byte)v3.X, (byte)v3.Y, (byte)v3.Z);
+        }
+
+        public static Vector3 multiplyClrs(Vector3 v1, Vector3 v2)
+        {
+            return new Vector3(v1.X * v2.X, v1.Y * v2.Y, v1.Z *  v2.Z);
+        }
 
         public static Vector3 CalcPhongBg(float ka, Vector3 ia)
         {
