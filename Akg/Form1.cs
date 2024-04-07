@@ -15,7 +15,7 @@ public partial class Form1 : Form
 {
     private static Size _size;
     //private static string modelFolder = "D:/Models/Shovel Knight";
-    private static string modelFolder = "D:/Models/Cube";
+    private static string modelFolder = "D:/Models/Head";
     //private static string modelFolder = "D:/Models/Plane";
 
     private const string modelPref = "/model.obj";
@@ -313,9 +313,7 @@ public partial class Form1 : Form
 
                                 var clr = GetColorFromSkybox(interpolatedNormal);
 
-
-
-                                //phongClr = ValuesChanger.ApplyGamma(phongClr, 0.454545f);
+                                clr = ValuesChanger.ApplyGamma(clr, 0.454545f);
 
                                 Drawing.DrawSimplePoint(bData, bitsPerPixel, scan0, clr * 255, x, y, z,
                                     _bitmap.Width, _bitmap.Height, _zBuffer);
@@ -402,7 +400,7 @@ public partial class Form1 : Form
                                 var cameraDir = Vector3.Normalize(Service.Camera - fragV3);
 
                                 var phongBg = Service.CalcPhongBg(Service.Ka, Service.Ia);
-                                var diffuse = Service.CalcDiffuseLight(interpolatedNormal, lightDir, Service.Id, Service.Kd);
+                                var diffuse = Service.CalcDiffuseLight(interpolatedNormal, lightDir, Id, Service.Kd);
                                 var spec = Service.CalcSpecLight(interpolatedNormal, cameraDir, lightDir, Service.Ks, Service.Is);
 
                                 var phongClr = phongBg + diffuse + spec;
@@ -459,7 +457,7 @@ public partial class Form1 : Form
                 CubeTextures();
                 break;
             case 6:
-
+                CubeTexturesAndPhong();
                 break;
             default:
                 Drawing.DrawingFullGrid(_bitmap, Service.SelectedColor, _fArr, _updateVArr,

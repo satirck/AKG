@@ -70,6 +70,7 @@ namespace Akg.ValueChanger
             tbTrgX = new TextBox();
             radioButton4 = new RadioButton();
             radioButton5 = new RadioButton();
+            radioButton6 = new RadioButton();
             SuspendLayout();
             // 
             // lbBgColor
@@ -164,7 +165,7 @@ namespace Akg.ValueChanger
             // 
             // button1
             // 
-            button1.Location = new Point(87, 612);
+            button1.Location = new Point(84, 623);
             button1.Margin = new Padding(3, 4, 3, 4);
             button1.Name = "button1";
             button1.Size = new Size(160, 40);
@@ -404,6 +405,17 @@ namespace Akg.ValueChanger
             radioButton5.UseVisualStyleBackColor = true;
             radioButton5.CheckedChanged += radioButton5_CheckedChanged;
             // 
+            // radioButton6
+            // 
+            radioButton6.Location = new Point(12, 585);
+            radioButton6.Margin = new Padding(3, 4, 3, 4);
+            radioButton6.Name = "radioButton6";
+            radioButton6.Size = new Size(237, 30);
+            radioButton6.TabIndex = 47;
+            radioButton6.Text = "Кубические текстуры + Фонга";
+            radioButton6.UseVisualStyleBackColor = true;
+            radioButton6.CheckedChanged += radioButton6_CheckedChanged;
+            // 
             // ValuesChanger
             // 
             AutoScaleDimensions = new SizeF(8F, 20F);
@@ -411,6 +423,7 @@ namespace Akg.ValueChanger
             AutoSize = true;
             AutoSizeMode = AutoSizeMode.GrowAndShrink;
             ClientSize = new Size(383, 676);
+            Controls.Add(radioButton6);
             Controls.Add(radioButton5);
             Controls.Add(radioButton4);
             Controls.Add(tbTrgY);
@@ -502,5 +515,6 @@ namespace Akg.ValueChanger
         public TextBox tbTrgX;
         private RadioButton radioButton4;
         private RadioButton radioButton5;
+        private RadioButton radioButton6;
     }
 }

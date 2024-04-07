@@ -217,5 +217,12 @@ namespace Akg.ValueChanger
             parent.wasUpdate = true;
             parent.pictureBox1.Invalidate();
         }
+
+        private void radioButton6_CheckedChanged(object sender, EventArgs e)
+        {
+            Service.Mode = 6;
+            parent.wasUpdate = true;
+            parent.pictureBox1.Invalidate();
+        }
     }
 }
