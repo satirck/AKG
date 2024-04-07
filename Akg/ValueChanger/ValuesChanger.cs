@@ -13,7 +13,7 @@ namespace Akg.ValueChanger
         private static Vector3 vSc = new Vector3(0.76f, 0.25f, 0.76f);
 
         //Camera position
-        public static Vector3 Camera = new Vector3(1, 1, 3);
+        public static Vector3 Camera = new Vector3(3, 0, 0);
         public static Vector3 Target = new Vector3(0, 0, 0);
 
         //Light pos
@@ -51,10 +51,10 @@ namespace Akg.ValueChanger
 
             //Phong Diffuse color
             tbId.Text = v3ToText(vId);
-            
+
             //Phong Specular color
             tbIs.Text = v3ToText(vIs);
-            
+
             //Camera position
             tbCamX.Text = Camera.X.ToString(CultureInfo.InvariantCulture);
             tbCamY.Text = Camera.Y.ToString(CultureInfo.InvariantCulture);
@@ -108,7 +108,8 @@ namespace Akg.ValueChanger
         private Vector3 textToV3(string txt)
         {
             string[] parts = txt.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-            if (parts.Length == 1) {
+            if (parts.Length == 1)
+            {
                 return new Vector3(float.Parse(parts[0], CultureInfo.InvariantCulture.NumberFormat));
             }
             else
@@ -206,6 +207,13 @@ namespace Akg.ValueChanger
         private void radioButton4_CheckedChanged(object sender, EventArgs e)
         {
             Service.Mode = 4;
+            parent.wasUpdate = true;
+            parent.pictureBox1.Invalidate();
+        }
+
+        private void radioButton5_CheckedChanged(object sender, EventArgs e)
+        {
+            Service.Mode = 5;
             parent.wasUpdate = true;
             parent.pictureBox1.Invalidate();
         }

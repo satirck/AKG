@@ -69,6 +69,7 @@ namespace Akg.ValueChanger
             tbTrgZ = new TextBox();
             tbTrgX = new TextBox();
             radioButton4 = new RadioButton();
+            radioButton5 = new RadioButton();
             SuspendLayout();
             // 
             // lbBgColor
@@ -392,6 +393,17 @@ namespace Akg.ValueChanger
             radioButton4.UseVisualStyleBackColor = true;
             radioButton4.CheckedChanged += radioButton4_CheckedChanged;
             // 
+            // radioButton5
+            // 
+            radioButton5.Location = new Point(131, 547);
+            radioButton5.Margin = new Padding(3, 4, 3, 4);
+            radioButton5.Name = "radioButton5";
+            radioButton5.Size = new Size(210, 30);
+            radioButton5.TabIndex = 46;
+            radioButton5.Text = "Кубические текстуры";
+            radioButton5.UseVisualStyleBackColor = true;
+            radioButton5.CheckedChanged += radioButton5_CheckedChanged;
+            // 
             // ValuesChanger
             // 
             AutoScaleDimensions = new SizeF(8F, 20F);
@@ -399,6 +411,7 @@ namespace Akg.ValueChanger
             AutoSize = true;
             AutoSizeMode = AutoSizeMode.GrowAndShrink;
             ClientSize = new Size(383, 676);
+            Controls.Add(radioButton5);
             Controls.Add(radioButton4);
             Controls.Add(tbTrgY);
             Controls.Add(tbTrgZ);
@@ -488,5 +501,6 @@ namespace Akg.ValueChanger
         public TextBox tbTrgZ;
         public TextBox tbTrgX;
         private RadioButton radioButton4;
+        private RadioButton radioButton5;
     }
 }

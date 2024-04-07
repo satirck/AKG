@@ -71,7 +71,7 @@ namespace Akg
 
         public static Vector3 multiplyClrs(Vector3 v1, Vector3 v2)
         {
-            return new Vector3(v1.X * v2.X, v1.Y * v2.Y, v1.Z *  v2.Z);
+            return new Vector3(v1.X * v2.X, v1.Y * v2.Y, v1.Z * v2.Z);
         }
 
         public static Vector3 CalcPhongBg(float ka, Vector3 ia)
@@ -90,6 +90,33 @@ namespace Akg
 
             return id * dot * kd;
         }
+
+        public static Vector3 v4ToV3(Vector4 v4)
+        {
+            return new Vector3(v4.X, v4.Y, v4.Z);
+        }
+
+        public static Vector3 FindVertexPoint(Vector4[] modelVArr)
+        {
+            Vector3 center = Target;
+
+            Vector3 furthestVertex = v4ToV3(modelVArr[0]);
+            float maxDistanceSquared = Vector3.DistanceSquared(furthestVertex, center);
+            foreach (var v4 in modelVArr)
+            {
+                var vertex = v4ToV3(v4);
+
+                float distanceSquared = Vector3.DistanceSquared(vertex, center);
+                if (distanceSquared > maxDistanceSquared)
+                {
+                    furthestVertex = vertex;
+                    maxDistanceSquared = distanceSquared;
+                }
+            }
+
+            return furthestVertex;
+        }
+
 
         public static Vector3 CalcSpecLight(Vector3 normal, Vector3 view, Vector3 lightDir, float Ks, Vector3 Is)
         {

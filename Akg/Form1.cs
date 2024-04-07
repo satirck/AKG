@@ -2,7 +2,9 @@ using System;
 using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Imaging;
+using System.IO.Compression;
 using System.Numerics;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Windows.Forms;
 using Akg.ValueChanger;
@@ -13,13 +15,24 @@ public partial class Form1 : Form
 {
     private static Size _size;
     //private static string modelFolder = "D:/Models/Shovel Knight";
-    private static string modelFolder = "D:/Models/Head";
+    private static string modelFolder = "D:/Models/Cube";
     //private static string modelFolder = "D:/Models/Plane";
 
     private const string modelPref = "/model.obj";
     private const string diffPref = "/diffuse.png";
     private const string specPref = "/specular.png";
     private const string normalsPref = "/normal.png";
+
+    private static string skyboxPrefix = "D:\\Models\\Skybox\\";
+
+    private static Bitmap[] cubeTextures = [
+        new Bitmap(skyboxPrefix + "posx.jpg"),
+        new Bitmap(skyboxPrefix + "negx.jpg"),
+        new Bitmap(skyboxPrefix + "posz.jpg"),
+        new Bitmap(skyboxPrefix + "negz.jpg"),
+        new Bitmap(skyboxPrefix + "posy.jpg"),
+        new Bitmap(skyboxPrefix + "negy.jpg"),
+    ];
 
     private static bool _shouldDraw;
     private static Bitmap _bitmap = new Bitmap(1, 1);
@@ -60,6 +73,183 @@ public partial class Form1 : Form
 
     private static float[][] _zBuffer = new float[2000][];
 
+    private static Vector3 getSight(Vector3 interpolatedNormal)
+    {
+        Vector3 clr = new Vector3(0);
+        float x, y, z;
+        x = y = z = 0;
+
+        // Находим максимальную компоненту нормали
+        float maxX = Math.Abs(interpolatedNormal.X);
+        float maxY = Math.Abs(interpolatedNormal.Y);
+        float maxZ = Math.Abs(interpolatedNormal.Z);
+
+        float maxComponent = Math.Max(maxX, Math.Max(maxY, maxZ));
+
+        // Определяем направление, вдоль которого смотрит нормаль
+        if (maxComponent == maxX)
+        {
+            x += 1;
+            if (interpolatedNormal.X < 0)
+            {
+                x /= 2;
+            }
+        }
+        else if (maxComponent == maxY)
+        {
+            y += 1;
+            if (interpolatedNormal.Y < 0)
+            {
+                y /= 2;
+            }
+        }
+        else
+        {
+            z += 1;
+            if (interpolatedNormal.Z < 0)
+            {
+                z /= 2;
+            }
+        }
+
+        return new Vector3(x, y, z);
+    }
+
+    private static string getSightS(Vector3 interpolatedNormal)
+    {
+        string sight;
+
+        // Находим максимальную компоненту нормали
+        float maxX = Math.Abs(interpolatedNormal.X);
+        float maxY = Math.Abs(interpolatedNormal.Y);
+        float maxZ = Math.Abs(interpolatedNormal.Z);
+
+        float maxComponent = Math.Max(maxX, Math.Max(maxY, maxZ));
+
+        // Определяем направление, вдоль которого смотрит нормаль
+        if (maxComponent == maxX)
+        {
+            sight = "+x";
+            if (interpolatedNormal.X < 0)
+            {
+                sight = "-x";
+            }
+        }
+        else if (maxComponent == maxY)
+        {
+            sight = "+y";
+            if (interpolatedNormal.Y < 0)
+            {
+                sight = "-y";
+            }
+        }
+        else
+        {
+            sight = "+z";
+            if (interpolatedNormal.Z < 0)
+            {
+                sight = "-z";
+            }
+        }
+
+        return sight;
+    }
+
+    // x is u and y is v
+    private static Vector2 getUV(Vector3 normal, string sight)
+    {
+        Vector2 uv = Vector2.Zero;
+
+        float x = normal.X;
+        float y = normal.Y;
+        float z = normal.Z;
+
+        if (sight == "+x")
+        {
+            uv.X = (-z / MathF.Abs(x) + 1) / 2;
+            uv.Y = (-y / MathF.Abs(x) + 1) / 2;
+        }
+        else if (sight == "-x")
+        {
+            uv.X = (z / MathF.Abs(x) + 1) / 2;
+            uv.Y = (-y / MathF.Abs(x) + 1) / 2;
+        }
+        else if (sight == "+z")
+        {
+            uv.X = (x / MathF.Abs(z) + 1) / 2;
+            uv.Y = (-y / MathF.Abs(z) + 1) / 2;
+        }
+        else if (sight == "-z")
+        {
+            uv.X = (-x / MathF.Abs(z) + 1) / 2;
+            uv.Y = (-y / MathF.Abs(z) + 1) / 2;
+        }
+        else if (sight == "+y")
+        {
+            uv.X = (-z / MathF.Abs(y) + 1) / 2;
+            uv.Y = (-x / MathF.Abs(y) + 1) / 2;
+        }
+        else if (sight == "-y")
+        {
+            uv.X = (z / MathF.Abs(y) + 1) / 2;
+            uv.Y = (-x / MathF.Abs(y) + 1) / 2;
+        }
+
+        return uv;
+    }
+
+    private static Vector3 GetColorFromBitmap(Bitmap map, Vector3 normal, string sight)
+    {
+        int width = map.Width;
+        int height = map.Height;
+
+        Vector2 uv = getUV(normal, sight);
+
+        uv.X *= width;
+        uv.Y *= height;
+
+        int u = Math.Max(0, Math.Min((int)uv.X, width - 1));
+        int v = Math.Max(0, Math.Min((int)uv.Y, height - 1));
+
+
+        var tempClr = map.GetPixel(u, v);
+        return Service.clrToV3(tempClr);
+    }
+
+    private static Vector3 GetColorFromSkybox(Vector3 interpolatedNormal)
+    {
+        Vector3 clr = Vector3.Zero;
+
+        var sight = getSightS(interpolatedNormal);
+
+        if (sight == "+x")
+        {
+            clr = GetColorFromBitmap(cubeTextures[0], interpolatedNormal, sight);
+        }
+        else if (sight == "-x")
+        {
+            clr = GetColorFromBitmap(cubeTextures[1], interpolatedNormal, sight);
+        }
+        else if (sight == "+z")
+        {
+            clr = GetColorFromBitmap(cubeTextures[2], interpolatedNormal, sight);
+        }
+        else if (sight == "-z")
+        {
+            clr = GetColorFromBitmap(cubeTextures[3], interpolatedNormal, sight);
+        }
+        else if (sight == "+y")
+        {
+            clr = GetColorFromBitmap(cubeTextures[4], interpolatedNormal, sight);
+        }
+        else if (sight == "-y")
+        {
+            clr = GetColorFromBitmap(cubeTextures[5], interpolatedNormal, sight);
+        }
+
+        return clr;
+    }
+
     public static unsafe void CubeTextures()
     {
         BitmapData bData = _bitmap.LockBits(new Rectangle(0, 0, _bitmap.Width, _bitmap.Height),
@@ -77,10 +267,8 @@ public partial class Form1 : Form
             if (Vector3.Dot(Service.VPolygonNormals[j], normalCamView) > 0)
             {
                 var indexes = _fArr[j];
-                var tIndexes = _fvtList[j];
 
                 Vector4 f1 = _updateVArr[indexes[0] - 1];
-                Vector3 f1Vt = _vtList[tIndexes[0] - 1] / _ws[indexes[0] - 1];
                 Vector3 n1 = Service.VertexNormals[indexes[0] - 1];
                 Vector4 f1Mode = _modelVArr[indexes[0] - 1];
 
@@ -88,17 +276,15 @@ public partial class Form1 : Form
                 {
                     Vector4 f2 = _updateVArr[indexes[i] - 1];
                     Vector4 f2Model = _modelVArr[indexes[i] - 1];
-                    Vector3 f2Vt = _vtList[tIndexes[i] - 1] / _ws[indexes[i] - 1];
 
                     Vector4 f3 = _updateVArr[indexes[i + 1] - 1];
                     Vector4 f3Model = _modelVArr[indexes[i + 1] - 1];
-                    Vector3 f3Vt = _vtList[tIndexes[i + 1] - 1] / _ws[indexes[i + 1] - 1];
 
                     Vector3 n2 = Service.VertexNormals[indexes[i] - 1];
                     Vector3 n3 = Service.VertexNormals[indexes[i + 1] - 1];
 
-                    var minX = Math.Min(f1.X, Math.Min(f2.X, f3.X)); // Привет, Андрей
-                    var maxX = Math.Max(f1.X, Math.Max(f2.X, f3.X)); // Как дела?
+                    var minX = Math.Min(f1.X, Math.Min(f2.X, f3.X));
+                    var maxX = Math.Max(f1.X, Math.Max(f2.X, f3.X));
                     var minY = Math.Min(f1.Y, Math.Min(f2.Y, f3.Y));
                     var maxY = Math.Max(f1.Y, Math.Max(f2.Y, f3.Y));
 
@@ -125,77 +311,99 @@ public partial class Form1 : Form
 
                                 interpolatedNormal = Vector3.Normalize(interpolatedNormal);
 
+                                var clr = GetColorFromSkybox(interpolatedNormal);
+
+
+
+                                //phongClr = ValuesChanger.ApplyGamma(phongClr, 0.454545f);
+
+                                Drawing.DrawSimplePoint(bData, bitsPerPixel, scan0, clr * 255, x, y, z,
+                                    _bitmap.Width, _bitmap.Height, _zBuffer);
+
+                            }
+                        }
+                    }
+                }
+
+            }
+        }
+
+        _bitmap.UnlockBits(bData);
+    }
+
+    public static unsafe void CubeTexturesAndPhong()
+    {
+        BitmapData bData = _bitmap.LockBits(new Rectangle(0, 0, _bitmap.Width, _bitmap.Height),
+                 ImageLockMode.ReadWrite, _bitmap.PixelFormat);
+        var bitsPerPixel = (byte)Image.GetPixelFormatSize(bData.PixelFormat);
+        var scan0 = (byte*)bData.Scan0;
+
+
+        for (int j = 0; j < _fArr.Length; j++)
+        {
+            var temp = _modelVArr[_fArr[j][0] - 1];
+            Vector3 n = new Vector3(temp.X, temp.Y, temp.Z);
+            var normalCamView = Vector3.Normalize(Service.Camera - n);
+
+            if (Vector3.Dot(Service.VPolygonNormals[j], normalCamView) > 0)
+            {
+                var indexes = _fArr[j];
+
+                Vector4 f1 = _updateVArr[indexes[0] - 1];
+                Vector3 n1 = Service.VertexNormals[indexes[0] - 1];
+                Vector4 f1Mode = _modelVArr[indexes[0] - 1];
+
+                for (var i = 1; i <= indexes.Length - 2; i++)
+                {
+                    Vector4 f2 = _updateVArr[indexes[i] - 1];
+                    Vector4 f2Model = _modelVArr[indexes[i] - 1];
+
+                    Vector4 f3 = _updateVArr[indexes[i + 1] - 1];
+                    Vector4 f3Model = _modelVArr[indexes[i + 1] - 1];
+
+                    Vector3 n2 = Service.VertexNormals[indexes[i] - 1];
+                    Vector3 n3 = Service.VertexNormals[indexes[i + 1] - 1];
+
+                    var minX = Math.Min(f1.X, Math.Min(f2.X, f3.X));
+                    var maxX = Math.Max(f1.X, Math.Max(f2.X, f3.X));
+                    var minY = Math.Min(f1.Y, Math.Min(f2.Y, f3.Y));
+                    var maxY = Math.Max(f1.Y, Math.Max(f2.Y, f3.Y));
+
+                    var startX = (int)Math.Ceiling(minX);
+                    var endX = (int)Math.Floor(maxX);
+                    var startY = (int)Math.Ceiling(minY);
+                    var endY = (int)Math.Floor(maxY);
+
+                    for (var y = startY; y <= endY; y++)
+                    {
+                        for (var x = startX; x <= endX; x++)
+                        {
+                            if (Translations.IsPointInTriangle(x, y, f1, f2, f3))
+                            {
+                                Vector3 barycentricCoords =
+                                        Translations.CalculateBarycentricCoordinates(x, y, f1, f2, f3);
+
+                                var z = barycentricCoords.X * f1.Z + barycentricCoords.Y * f2.Z +
+                                        barycentricCoords.Z * f3.Z;
+
+                                Vector3 interpolatedNormal = barycentricCoords.X * n1 + barycentricCoords.Y * n2 +
+                                                             barycentricCoords.Z * n3;
+
+                                interpolatedNormal = Vector3.Normalize(interpolatedNormal);
+
                                 Vector4 frag = barycentricCoords.X * f1Mode + barycentricCoords.Y * f2Model +
                                                barycentricCoords.Z * f3Model;
 
                                 Vector3 fragV3 = new Vector3(frag.X, frag.Y, frag.Z);
 
-                                Vector3 textureCoord = barycentricCoords.X * f1Vt + barycentricCoords.Y * f2Vt +
-                                   barycentricCoords.Z * f3Vt;
-
-                                if (textureCoord.X > 1 || textureCoord.Y > 1)
-                                {
-                                    throw new Exception("Index out of real");
-                                }
+                                Vector3 Id = GetColorFromSkybox(interpolatedNormal);
 
                                 var lightDir = Vector3.Normalize(Service.LambertLight - fragV3);
                                 var cameraDir = Vector3.Normalize(Service.Camera - fragV3);
 
-                                var normal = interpolatedNormal;
-
-                                Vector3 Ia = new Vector3();
-                                Vector3 Is = new Vector3();
-
-                                if (diffuseMap != null)
-                                {
-                                    textureCoord.X *= diffuseMap.Width;
-                                    textureCoord.Y *= diffuseMap.Height;
-
-                                    textureCoord /= textureCoord.Z;
-
-                                    int u = Math.Max(0, Math.Min((int)textureCoord.X, diffuseMap.Height - 1)); // ��������� ���������� U �� textureCoord
-                                    int v = Math.Max(0, Math.Min(diffuseMap.Width - (int)textureCoord.Y, diffuseMap.Width - 1)); // ��������� ���������� V �� textureCoord
-
-                                    Ia = Service.clrToV3(diffuseMap.GetPixel(u, v));
-
-
-                                    if (specularMap != null)
-                                    {
-                                        //specular
-                                        Is = Service.clrToV3(specularMap.GetPixel(u, v));
-                                    }
-
-                                    if (normalMap != null)
-                                    {
-                                        //normal
-                                        Color normalColor = normalMap.GetPixel(u, v);
-                                        float r = normalColor.R / 255f;  // ���������� R (�������)
-                                        float g = normalColor.G / 255f;  // ���������� G (�������)
-                                        float b = normalColor.B / 255f;  // ���������� B (�����)
-                                        normal = new Vector3(
-                                            (r * 2f) - 1f,  // ���������� X
-                                            (g * 2f) - 1f,  // ���������� Y
-                                            (b * 2f) - 1f   // ���������� Z
-                                            );
-
-                                        var rotX = Matrix4x4.CreateRotationX(angels.X);
-                                        var rotY = Matrix4x4.CreateRotationY(angels.Y);
-                                        var rotZ = Matrix4x4.CreateRotationZ(angels.Z);
-
-                                        normal = Vector3.Transform(normal, rotX);
-                                        normal = Vector3.Transform(normal, rotY);
-                                        normal = Vector3.Transform(normal, rotZ);
-                                    }
-
-                                }
-
-                                Ia = ValuesChanger.ApplyGamma(Ia, 2.2f);
-                                Is = ValuesChanger.ApplyGamma(Is, 2.2f);
-
-
-                                var phongBg = Service.CalcPhongBg(Service.Ka, Service.multiplyClrs(Service.Ia, Ia));
-                                var diffuse = Service.CalcDiffuseLight(normal, lightDir, Service.multiplyClrs(Service.Id, Ia), Service.Kd);
-                                var spec = Service.CalcSpecLight(normal, cameraDir, lightDir, Service.Ks, Service.multiplyClrs(Service.Is, Is));
+                                var phongBg = Service.CalcPhongBg(Service.Ka, Service.Ia);
+                                var diffuse = Service.CalcDiffuseLight(interpolatedNormal, lightDir, Service.Id, Service.Kd);
+                                var spec = Service.CalcSpecLight(interpolatedNormal, cameraDir, lightDir, Service.Ks, Service.Is);
 
                                 var phongClr = phongBg + diffuse + spec;
 
@@ -219,7 +427,14 @@ public partial class Form1 : Form
         _bitmap.UnlockBits(bData);
     }
 
-
+    private static void StretchImage(Bitmap sourceImage, ref Bitmap destinationImage)
+    {
+        using (Graphics g = Graphics.FromImage(destinationImage))
+        {
+            g.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
+            g.DrawImage(sourceImage, 0, 0, destinationImage.Width, destinationImage.Height);
+        }
+    }
 
     private static unsafe void DrawPoints()
     {
@@ -243,6 +458,9 @@ public partial class Form1 : Form
             case 5:
                 CubeTextures();
                 break;
+            case 6:
+
+                break;
             default:
                 Drawing.DrawingFullGrid(_bitmap, Service.SelectedColor, _fArr, _updateVArr,
                     _bitmap.Width, _bitmap.Height, _zBuffer);
@@ -255,6 +473,9 @@ public partial class Form1 : Form
     {
         Service.UpdateMatrix();
         Service.TranslatePositions(_vArr, _updateVArr, _fArr, _modelVArr, _ws);
+
+        var vertex = Service.FindVertexPoint(_modelVArr);
+
         CleanZBuffer();
         DrawPoints();
     }
@@ -581,11 +802,6 @@ public partial class Form1 : Form
                                 Vector3 textureCoord = barycentricCoords.X * f1Vt + barycentricCoords.Y * f2Vt +
                                    barycentricCoords.Z * f3Vt;
 
-                                if (textureCoord.X > 1 || textureCoord.Y > 1)
-                                {
-                                    throw new Exception("Index out of real");
-                                }
-
                                 var lightDir = Vector3.Normalize(Service.LambertLight - fragV3);
                                 var cameraDir = Vector3.Normalize(Service.Camera - fragV3);
 
@@ -601,8 +817,8 @@ public partial class Form1 : Form
 
                                     textureCoord /= textureCoord.Z;
 
-                                    int u = Math.Max(0, Math.Min((int)textureCoord.X, diffuseMap.Height - 1)); // ��������� ���������� U �� textureCoord
-                                    int v = Math.Max(0, Math.Min(diffuseMap.Width - (int)textureCoord.Y, diffuseMap.Width - 1)); // ��������� ���������� V �� textureCoord
+                                    int u = Math.Max(0, Math.Min((int)textureCoord.X, diffuseMap.Height - 1)); // ??????????????????????????? ?????????????????????????????? U ?????? textureCoord
+                                    int v = Math.Max(0, Math.Min(diffuseMap.Width - (int)textureCoord.Y, diffuseMap.Width - 1)); // ??????????????????????????? ?????????????????????????????? V ?????? textureCoord
 
                                     Ia = Service.clrToV3(diffuseMap.GetPixel(u, v));
 
@@ -617,13 +833,13 @@ public partial class Form1 : Form
                                     {
                                         //normal
                                         Color normalColor = normalMap.GetPixel(u, v);
-                                        float r = normalColor.R / 255f;  // ���������� R (�������)
-                                        float g = normalColor.G / 255f;  // ���������� G (�������)
-                                        float b = normalColor.B / 255f;  // ���������� B (�����)
+                                        float r = normalColor.R / 255f;  // ?????????????????????????????? R (?????????????????????)
+                                        float g = normalColor.G / 255f;  // ?????????????????????????????? G (?????????????????????)
+                                        float b = normalColor.B / 255f;  // ?????????????????????????????? B (???????????????)
                                         normal = new Vector3(
-                                            (r * 2f) - 1f,  // ���������� X
-                                            (g * 2f) - 1f,  // ���������� Y
-                                            (b * 2f) - 1f   // ���������� Z
+                                            (r * 2f) - 1f,  // ?????????????????????????????? X
+                                            (g * 2f) - 1f,  // ?????????????????????????????? Y
+                                            (b * 2f) - 1f   // ?????????????????????????????? Z
                                             );
 
                                         var rotX = Matrix4x4.CreateRotationX(angels.X);
