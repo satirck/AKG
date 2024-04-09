@@ -15,7 +15,7 @@ public partial class Form1 : Form
 {
     private static Size _size;
     //private static string modelFolder = "D:/Models/Shovel Knight";
-    private static string modelFolder = "D:/Models/Head";
+    private static string modelFolder = "D:/Models/Sphere";
     //private static string modelFolder = "D:/Models/Plane";
 
     private const string modelPref = "/model.obj";
@@ -23,7 +23,16 @@ public partial class Form1 : Form
     private const string specPref = "/specular.png";
     private const string normalsPref = "/normal.png";
 
-    private static string skyboxPrefix = "D:\\Models\\Skybox\\";
+    private static string[] skyboxPrefixes = [
+        "",
+        "D:\\Models\\Skybox\\Square\\",
+        "D:\\Models\\Skybox\\ArstaBridge\\",
+        "D:\\Models\\Skybox\\Bridge\\",
+        "D:\\Models\\Skybox\\Bridge2\\",
+        "D:\\Models\\Skybox\\HornstullsStrand\\",
+    ];
+
+    private static string skyboxPrefix = skyboxPrefixes[1];
 
     private static Bitmap[] cubeTextures = [
         new Bitmap(skyboxPrefix + "posx.jpg"),
@@ -311,9 +320,21 @@ public partial class Form1 : Form
 
                                 interpolatedNormal = Vector3.Normalize(interpolatedNormal);
 
-                                var clr = GetColorFromSkybox(interpolatedNormal);
+                                Vector4 frag = barycentricCoords.X * f1Mode + barycentricCoords.Y * f2Model +
+                                                                               barycentricCoords.Z * f3Model;
 
-                                clr = ValuesChanger.ApplyGamma(clr, 0.454545f);
+                                Vector3 fragV3 = new Vector3(frag.X, frag.Y, frag.Z);
+
+                                var lightDir = Vector3.Normalize(Service.LambertLight - fragV3);
+                                var cameraDir = Vector3.Normalize(Service.Camera - fragV3);
+
+
+                                var reflection = Vector3.Reflect(-cameraDir, interpolatedNormal);
+
+
+                                var clr = GetColorFromSkybox(reflection);
+
+                                //clr = ValuesChanger.ApplyGamma(clr, 2.2f);
 
                                 Drawing.DrawSimplePoint(bData, bitsPerPixel, scan0, clr * 255, x, y, z,
                                     _bitmap.Width, _bitmap.Height, _zBuffer);
@@ -394,14 +415,25 @@ public partial class Form1 : Form
 
                                 Vector3 fragV3 = new Vector3(frag.X, frag.Y, frag.Z);
 
-                                Vector3 Id = GetColorFromSkybox(interpolatedNormal);
-
                                 var lightDir = Vector3.Normalize(Service.LambertLight - fragV3);
                                 var cameraDir = Vector3.Normalize(Service.Camera - fragV3);
 
+
+                                var reflection = Vector3.Reflect(-cameraDir, interpolatedNormal);
+
+
+
+
+                                Vector3 Id = GetColorFromSkybox(reflection);
+
+                                var Is = Id = ValuesChanger.ApplyGamma(Id, 2.2f);
+
+
+
                                 var phongBg = Service.CalcPhongBg(Service.Ka, Service.Ia);
+                                //var phongBg = Service.CalcPhongBg(Service.Ka, Id);
                                 var diffuse = Service.CalcDiffuseLight(interpolatedNormal, lightDir, Id, Service.Kd);
-                                var spec = Service.CalcSpecLight(interpolatedNormal, cameraDir, lightDir, Service.Ks, Service.Is);
+                                var spec = Service.CalcSpecLight(interpolatedNormal, cameraDir, lightDir, Service.Ks, Is);
 
                                 var phongClr = phongBg + diffuse + spec;
 
@@ -805,6 +837,10 @@ public partial class Form1 : Form
 
                                 var normal = interpolatedNormal;
 
+                                var reflection = Vector3.Reflect(-cameraDir, interpolatedNormal);
+
+                                var clr = GetColorFromSkybox(reflection);
+
                                 Vector3 Ia = new Vector3();
                                 Vector3 Is = new Vector3();
 
@@ -855,9 +891,10 @@ public partial class Form1 : Form
                                 Is = ValuesChanger.ApplyGamma(Is, 2.2f);
 
 
+
                                 var phongBg = Service.CalcPhongBg(Service.Ka, Service.multiplyClrs(Service.Ia, Ia));
-                                var diffuse = Service.CalcDiffuseLight(normal, lightDir, Service.multiplyClrs(Service.Id, Ia), Service.Kd);
-                                var spec = Service.CalcSpecLight(normal, cameraDir, lightDir, Service.Ks, Service.multiplyClrs(Service.Is, Is));
+                                var diffuse = Service.CalcDiffuseLight(normal, lightDir, Service.multiplyClrs(clr, Ia), Service.Kd);
+                                var spec = Service.CalcSpecLight(normal, cameraDir, lightDir, Service.Ks, Service.multiplyClrs(clr, Is));
 
                                 var phongClr = phongBg + diffuse + spec;
 
