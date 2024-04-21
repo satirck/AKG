@@ -23,7 +23,7 @@ namespace Akg
             {
                 var temp = _modelVArr[_fArr[j][0] - 1];
                 Vector3 n = new Vector3(temp.X, temp.Y, temp.Z);
-                var normalCamView = Vector3.Normalize(Service.Camera - n);
+                var normalCamView = Vector3.Normalize(Service.Camera.position - n);
 
                 if (Vector3.Dot(Service.VPolygonNormals[j], normalCamView) > 0)
                 {
@@ -76,7 +76,7 @@ namespace Akg
                                     Vector3 fragV3 = new Vector3(frag.X, frag.Y, frag.Z);
 
                                     var lightDir = Vector3.Normalize(Service.LambertLight - fragV3);
-                                    var cameraDir = Vector3.Normalize(Service.Camera - fragV3);
+                                    var cameraDir = Vector3.Normalize(Service.Camera.position - fragV3);
 
                                     var phongBg = Service.CalcPhongBg(Service.Ka, Service.Ia);
                                     var diffuse = Service.CalcDiffuseLight(interpolatedNormal, lightDir, Service.Id, Service.Kd);
@@ -116,7 +116,7 @@ namespace Akg
                 var temp = modelVArr[fArr[j][0] - 1];
                 Vector3 n = new Vector3(temp.X, temp.Y, temp.Z);
 
-                if (Vector3.Dot(Service.VPolygonNormals[j], Service.Camera - n) > 0)
+                if (Vector3.Dot(Service.VPolygonNormals[j], Service.Camera.position - n) > 0)
                 {
                     var intensity = Math.Abs(Vector3.Dot(Service.VPolygonNormals[j],
                         Vector3.Normalize((Service.LambertLight - n))));

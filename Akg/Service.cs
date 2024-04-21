@@ -1,5 +1,6 @@
 using System;
 using System.Numerics;
+using _3dObjViewr.camera;
 
 namespace Akg
 {
@@ -7,30 +8,18 @@ namespace Akg
     {
         public static Vector3[] VPolygonNormals = [];
         public static Vector3[] VertexNormals = [];
-        public static int[] Counters = [];
         public static float Delta = 0.001f;
         public static float ScalingCof = 0.17f;
-        private static readonly float ZNear = 0.1f;
-        private static readonly float ZFar = 1000f;
 
-        private static readonly float Angle = (float)Math.PI / 3.0f;
-        public static float CameraView = 1f;
+        public static Camera Camera = new Camera(
+            new Vector3(0), new Vector3(3), 0.1f, 1000f, MathF.PI / 3,
+             1080, 720);
 
-        public static Size CameraViewSize = new Size(1080, 720);
-
-        public static Vector3 Camera = new Vector3(3);
-        public static Vector3 PrevCamera = new Vector3(3);
-        public static Vector3 CameraR = new Vector3(3);
 
         public static float rotAngle = MathF.PI / 36;
         public static Vector3 LambertLight = new Vector3(1, 1, (float)-Math.PI);
-        public static Vector3 Target = Vector3.Zero;
-        private static readonly Vector3 Up = Vector3.UnitY;
 
         private static readonly Matrix4x4 WorldMatrix = Matrix4x4.Identity;
-        private static Matrix4x4 _viewMatrix;
-        private static Matrix4x4 _projectionMatrix;
-
 
         //Mode variant
         //1 is Grid
@@ -96,28 +85,6 @@ namespace Akg
             return new Vector3(v4.X, v4.Y, v4.Z);
         }
 
-        public static Vector3 FindVertexPoint(Vector4[] modelVArr)
-        {
-            Vector3 center = Target;
-
-            Vector3 furthestVertex = v4ToV3(modelVArr[0]);
-            float maxDistanceSquared = Vector3.DistanceSquared(furthestVertex, center);
-            foreach (var v4 in modelVArr)
-            {
-                var vertex = v4ToV3(v4);
-
-                float distanceSquared = Vector3.DistanceSquared(vertex, center);
-                if (distanceSquared > maxDistanceSquared)
-                {
-                    furthestVertex = vertex;
-                    maxDistanceSquared = distanceSquared;
-                }
-            }
-
-            return furthestVertex;
-        }
-
-
         public static Vector3 CalcSpecLight(Vector3 normal, Vector3 view, Vector3 lightDir, float Ks, Vector3 Is)
         {
             var reflection = lightDir - 2 * Vector3.Dot(lightDir, normal) * normal;
@@ -140,7 +107,6 @@ namespace Akg
             {
                 //set 0 to normales
                 VertexNormals[i] = Vector3.Zero;
-                Counters[i] = 0;
             }
 
             //calc updates
@@ -172,14 +138,12 @@ namespace Akg
                     //key is for map value of normals total
                     var key = fArr[i][j] - 1;
                     VertexNormals[key] += VPolygonNormals[i];
-                    Counters[key] += 1;
                 }
 
             }
 
             for (int i = 0; i < VertexNormals.Length; i++)
             {
-                //VertexNormals[i] /= Counters[i];
                 VertexNormals[i] = Vector3.Normalize(VertexNormals[i]);
             }
         }
@@ -187,6 +151,9 @@ namespace Akg
         public static void TranslatePositions(Vector4[] vArr, Vector4[] updateVArr, int[][] fArr, Vector4[] modelVArr, float[] ws)
         {
             Matrix4x4 scaleMatrix = Matrix4x4.CreateScale(ScalingCof);
+
+            var matrixes = Camera.GetMatrix4X4s();
+
             for (var i = 0; i < vArr.Length; i++)
             {
                 //scale
@@ -195,17 +162,17 @@ namespace Akg
                 updateVArr[i] = Vector4.Transform(updateVArr[i], WorldMatrix);
                 modelVArr[i] = updateVArr[i];
                 //toView
-                updateVArr[i] = Vector4.Transform(updateVArr[i], _viewMatrix);
+                updateVArr[i] = Vector4.Transform(updateVArr[i], matrixes[0]);
                 //to Projection
-                Vector4 vector = Vector4.Transform(updateVArr[i], _projectionMatrix);
+                Vector4 vector = Vector4.Transform(updateVArr[i], matrixes[1]);
 
                 ws[i] = vector.W;
 
                 vector /= vector.W;
                 updateVArr[i] = vector;
                 //to Viewport
-                var x = (updateVArr[i].X + 1) * CameraViewSize.Width / 2;
-                var y = (-updateVArr[i].Y + 1) * CameraViewSize.Height / 2;
+                var x = (updateVArr[i].X + 1) * Camera.width / 2;
+                var y = (-updateVArr[i].Y + 1) * Camera.height / 2;
 
                 vector = updateVArr[i];
                 vector.X = x;
@@ -216,19 +183,5 @@ namespace Akg
 
         }
 
-        public static void UpdateMatrix()
-        {
-            //up
-            var viewDirection = Vector3.Normalize(Camera - Target);
-
-            var upDirection = Vector3.UnitY;
-            var rightDirection = Vector3.Normalize(Vector3.Cross(upDirection, viewDirection));
-
-            var perpendicular = Vector3.Cross(viewDirection, rightDirection);
-
-            _viewMatrix = Matrix4x4.CreateLookAt(Camera, Target, perpendicular);
-            _projectionMatrix =
-                Matrix4x4.CreatePerspectiveFieldOfView(Angle, CameraView, ZNear, ZFar);
-        }
     }
 }

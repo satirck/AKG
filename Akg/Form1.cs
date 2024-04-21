@@ -271,7 +271,7 @@ public partial class Form1 : Form
         {
             var temp = _modelVArr[_fArr[j][0] - 1];
             Vector3 n = new Vector3(temp.X, temp.Y, temp.Z);
-            var normalCamView = Vector3.Normalize(Service.Camera - n);
+            var normalCamView = Vector3.Normalize(Service.Camera.position - n);
 
             if (Vector3.Dot(Service.VPolygonNormals[j], normalCamView) > 0)
             {
@@ -333,7 +333,7 @@ public partial class Form1 : Form
                                    barycentricCoords.Z * f3Vt;
 
                                 var lightDir = Vector3.Normalize(Service.LambertLight - fragV3);
-                                var cameraDir = Vector3.Normalize(Service.Camera - fragV3);
+                                var cameraDir = Vector3.Normalize(Service.Camera.position - fragV3);
 
                                 var normal = interpolatedNormal;
 
@@ -457,10 +457,7 @@ public partial class Form1 : Form
 
     private static void VertexesUpdate()
     {
-        Service.UpdateMatrix();
         Service.TranslatePositions(_vArr, _updateVArr, _fArr, _modelVArr, _ws);
-
-        var vertex = Service.FindVertexPoint(_modelVArr);
 
         CleanZBuffer();
         DrawPoints();
@@ -479,8 +476,11 @@ public partial class Form1 : Form
 
     private static void MakeResizing(Form1 form1)
     {
-        Service.CameraViewSize = _size = form1.ClientSize;
-        Service.CameraView = Service.CameraViewSize.Width / (float)Service.CameraViewSize.Height;
+        _size = form1.ClientSize;
+
+        Service.Camera.width = _size.Width;
+        Service.Camera.height = _size.Height;
+        
         form1.lbHeight.Text = _size.Height.ToString();
         form1.lbWidth.Text = _size.Width.ToString();
         form1.pictureBox1.Size = _size;
@@ -508,8 +508,8 @@ public partial class Form1 : Form
             string _modelPath = fdOpenModel.FileName;
             if (File.Exists(_modelPath))
             {
-                string folder = Path.GetDirectoryName(_modelPath);
-                modelFolder = folder;
+                string? folder = Path.GetDirectoryName(_modelPath);
+                modelFolder = folder != null ? folder : "D:/";
                 model_loading();
                 pictureBox1.Invalidate();
             }
@@ -552,22 +552,22 @@ public partial class Form1 : Form
                 switch (e.KeyCode)
                 {
                     case Keys.Left:
-                        Service.Camera = Vector3.Transform(Service.Camera, Matrix4x4.CreateRotationY(-angel));
+                        Service.Camera.position = Vector3.Transform(Service.Camera.position, Matrix4x4.CreateRotationY(-angel));
                         break;
                     case Keys.Right:
-                        Service.Camera = Vector3.Transform(Service.Camera, Matrix4x4.CreateRotationY(angel));
+                        Service.Camera.position = Vector3.Transform(Service.Camera.position, Matrix4x4.CreateRotationY(angel));
                         break;
                     case Keys.Down:
-                        Service.Camera = Vector3.Transform(Service.Camera, Matrix4x4.CreateRotationX(angel));
+                        Service.Camera.position = Vector3.Transform(Service.Camera.position, Matrix4x4.CreateRotationX(angel));
                         break;
                     case Keys.Up:
-                        Service.Camera = Vector3.Transform(Service.Camera, Matrix4x4.CreateRotationX(-angel));
+                        Service.Camera.position = Vector3.Transform(Service.Camera.position, Matrix4x4.CreateRotationX(-angel));
                         break;
                     case Keys.A:
-                        Service.Camera = Vector3.Transform(Service.Camera, Matrix4x4.CreateRotationZ(angel));
+                        Service.Camera.position = Vector3.Transform(Service.Camera.position, Matrix4x4.CreateRotationZ(angel));
                         break;
                     case Keys.D:
-                        Service.Camera = Vector3.Transform(Service.Camera, Matrix4x4.CreateRotationZ(-angel));
+                        Service.Camera.position = Vector3.Transform(Service.Camera.position, Matrix4x4.CreateRotationZ(-angel));
                         break;
                     case Keys.S:
                         using (SaveFileDialog saveFileDialog = new SaveFileDialog())
@@ -588,30 +588,30 @@ public partial class Form1 : Form
                 }
 
 
-                form2.tbCamX.Text = Service.Camera.X.ToString("F1", culture);
-                form2.tbCamY.Text = Service.Camera.Y.ToString("F1", culture);
-                form2.tbCamZ.Text = Service.Camera.Z.ToString("F1", culture);
+                form2.tbCamX.Text = Service.Camera.position.X.ToString("F1", culture);
+                form2.tbCamY.Text = Service.Camera.position.Y.ToString("F1", culture);
+                form2.tbCamZ.Text = Service.Camera.position.Z.ToString("F1", culture);
             }
             else if (e.Shift)
             {
                 switch (e.KeyCode)
                 {
                     case Keys.Left:
-                        Service.Target.X += 0.1f;
+                        Service.Camera.target += new Vector3(0.1f, 0, 0);
                         break;
                     case Keys.Right:
-                        Service.Target.X -= 0.1f;
+                        Service.Camera.target -= new Vector3(0.1f, 0, 0);
                         break;
                     case Keys.Down:
-                        Service.Target.Y += 0.1f;
+                        Service.Camera.target += new Vector3(0, 0.1f, 0);
                         break;
                     case Keys.Up:
-                        Service.Target.Y -= 0.1f;
+                        Service.Camera.target -= new Vector3(0, 0.1f, 0);
                         break;
                 }
-                form2.tbTrgX.Text = Service.Target.X.ToString("F1", culture);
-                form2.tbTrgY.Text = Service.Target.Y.ToString("F1", culture);
-                form2.tbTrgZ.Text = Service.Target.Z.ToString("F1", culture);
+                form2.tbTrgX.Text = Service.Camera.target.X.ToString("F1", culture);
+                form2.tbTrgY.Text = Service.Camera.target.Y.ToString("F1", culture);
+                form2.tbTrgZ.Text = Service.Camera.target.Z.ToString("F1", culture);
             }
             else
             {
@@ -682,7 +682,6 @@ public partial class Form1 : Form
     {
         _shouldDraw = true;
         ObjParser parser = new ObjParser(modelFolder + modelPref);
-        Service.UpdateMatrix();
 
         _vArr = parser.VList.ToArray();
         _vtList = parser.VTList.ToArray();
@@ -698,7 +697,6 @@ public partial class Form1 : Form
 
         Service.VPolygonNormals = new Vector3[_fArr.Length];
         Service.VertexNormals = new Vector3[_vArr.Length];
-        Service.Counters = new int[_vArr.Length];
 
         for (var i = 0; i < parser.FList.Count; i++)
         {
@@ -706,7 +704,6 @@ public partial class Form1 : Form
             _fvtList[i] = parser.FVTList[i].ToArray();
         }
 
-        Service.UpdateMatrix();
         Service.TranslatePositions(_vArr, _updateVArr, _fArr, _modelVArr, _ws);
         Service.CalcStuff(_fArr, _modelVArr);
 
@@ -727,7 +724,7 @@ public partial class Form1 : Form
         {
             var temp = _modelVArr[_fArr[j][0] - 1];
             Vector3 n = new Vector3(temp.X, temp.Y, temp.Z);
-            var normalCamView = Vector3.Normalize(Service.Camera - n);
+            var normalCamView = Vector3.Normalize(Service.Camera.position - n);
 
             if (Vector3.Dot(Service.VPolygonNormals[j], normalCamView) > 0)
             {
@@ -789,7 +786,7 @@ public partial class Form1 : Form
                                    barycentricCoords.Z * f3Vt;
 
                                 var lightDir = Vector3.Normalize(Service.LambertLight - fragV3);
-                                var cameraDir = Vector3.Normalize(Service.Camera - fragV3);
+                                var cameraDir = Vector3.Normalize(Service.Camera.position - fragV3);
 
                                 var normal = interpolatedNormal;
 

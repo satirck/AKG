@@ -13,7 +13,7 @@ namespace Akg.ValueChanger
         private static Vector3 vSc = new Vector3(0.76f, 0.25f, 0.76f);
 
         //Camera position
-        public static Vector3 Camera = new Vector3(3, 0, 0);
+        public static Vector3 CameraPosition = new Vector3(3, 0, 0);
         public static Vector3 Target = new Vector3(0, 0, 0);
 
         //Light pos
@@ -56,9 +56,9 @@ namespace Akg.ValueChanger
             tbIs.Text = v3ToText(vIs);
 
             //Camera position
-            tbCamX.Text = Camera.X.ToString(CultureInfo.InvariantCulture);
-            tbCamY.Text = Camera.Y.ToString(CultureInfo.InvariantCulture);
-            tbCamZ.Text = Camera.Z.ToString(CultureInfo.InvariantCulture);
+            tbCamX.Text = CameraPosition.X.ToString(CultureInfo.InvariantCulture);
+            tbCamY.Text = CameraPosition.Y.ToString(CultureInfo.InvariantCulture);
+            tbCamZ.Text = CameraPosition.Z.ToString(CultureInfo.InvariantCulture);
 
             //target position
             tbTrgX.Text = Target.X.ToString(CultureInfo.InvariantCulture);
@@ -90,8 +90,8 @@ namespace Akg.ValueChanger
             Service.Ks = Ks;
             Service.Alpha = alpha;
             Service.LambertLight = Light;
-            Service.Camera = Camera;
-            Service.Target = Target;
+            Service.Camera.position = CameraPosition;
+            Service.Camera.target = Target;
         }
 
 
@@ -154,7 +154,7 @@ namespace Akg.ValueChanger
             vIs = textToV3(tbIs.Text);
 
             //Camera
-            Camera = new Vector3(
+            CameraPosition = new Vector3(
                float.Parse(tbCamX.Text, CultureInfo.InvariantCulture.NumberFormat),
                float.Parse(tbCamY.Text, CultureInfo.InvariantCulture.NumberFormat),
                float.Parse(tbCamZ.Text, CultureInfo.InvariantCulture.NumberFormat)
