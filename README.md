@@ -7,6 +7,9 @@ Done:
 2 lab - Flat shading + 1 light source
 3 lab - Phong shading
 4 lab - Add textures mappin
+5 lab - Add cube textures
+6 lab - Add PBR texturing (mrao map)
 
 In progress:
-5 lab - Add CubeTextures with reflection (maybe i`ll add a Skybox for more realistic view)
+7 lab - Bloom
+8 lab - Ray tracing (mb in future)
