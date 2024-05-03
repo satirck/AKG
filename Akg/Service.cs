@@ -1,31 +1,45 @@
 using System;
 using System.Numerics;
-using _3dObjViewr.camera;
+using static System.Numerics.Vector3;
+using static System.Single;
 
 namespace Akg
 {
+    
     public class Service
     {
         public static Vector3[] VPolygonNormals = [];
         public static Vector3[] VertexNormals = [];
+        public static int[] Counters = [];
         public static float Delta = 0.001f;
         public static float ScalingCof = 0.17f;
+        private static readonly float ZNear = 0.1f;
+        private static readonly float ZFar = 1000f;
 
-        public static Camera Camera = new Camera(
-            new Vector3(0), new Vector3(3), 0.1f, 1000f, MathF.PI / 3,
-             1080, 720);
+        private static readonly float Angle = (float)Math.PI / 4.0f;
+        public static float CameraView = 1f;
 
+        public static Size CameraViewSize = new Size(1080, 720);
+
+        public static Vector3 Camera = new Vector3(3);
+        public static Vector3 PrevCamera = new Vector3(3);
+        public static Vector3 CameraR = new Vector3(3);
 
         public static float rotAngle = MathF.PI / 36;
         public static Vector3 LambertLight = new Vector3(1, 1, (float)-Math.PI);
+        public static Vector3 Target = Vector3.Zero;
+        private static readonly Vector3 Up = Vector3.UnitY;
 
         private static readonly Matrix4x4 WorldMatrix = Matrix4x4.Identity;
+        private static Matrix4x4 _viewMatrix;
+        private static Matrix4x4 _projectionMatrix;
+
 
         //Mode variant
         //1 is Grid
         //2 is Lambert
         //3 is Phong
-        public static int Mode = 1;
+        public static int Mode = 4;
 
         //Graphics vars
         public static Vector3 SelectedColor;
@@ -38,10 +52,38 @@ namespace Akg
         public static float Ks;
         public static float Alpha;
 
+        public static Vector3 AcesFilmic(Vector3 color)
+        {
+            color = new(Dot(new(0.59719f, 0.35458f, 0.04823f), color),
+                        Dot(new(0.07600f, 0.90834f, 0.01566f), color),
+                        Dot(new(0.02840f, 0.13383f, 0.83777f), color));
+
+            color = (color * (color + new Vector3(0.0245786f)) - new Vector3(0.000090537f)) /
+                (color * (0.983729f * color + new Vector3(0.4329510f)) + new Vector3(0.238081f));
+
+            color = new(Dot(new(+1.60475f, -0.53108f, -0.07367f), color),
+                        Dot(new(-0.10208f, +1.10813f, -0.00605f), color),
+                        Dot(new(-0.00327f, -0.07276f, +1.07602f), color));
+
+            return Clamp(color, Zero, One);
+        }
+
+        public static Vector3 SrgbToLinear(Vector3 color)
+        {
+            static float SrgbToLinear(float c) => c <= 0.04045f ? c / 12.92f : Pow((c + 0.055f) / 1.055f, 2.4f);
+            return new(SrgbToLinear(color.X), SrgbToLinear(color.Y), SrgbToLinear(color.Z));
+        }
+
+        public static Vector3 LinearToSrgb(Vector3 color)
+        {
+            static float LinearToSrgb(float c) => c <= 0.0031308f ? 12.92f * c : 1.055f * Pow(c, 1 / 2.4f) - 0.055f;
+            return new(LinearToSrgb(color.X), LinearToSrgb(color.Y), LinearToSrgb(color.Z));
+        }
+
         public static Vector3 clrToV3(Color color)
         {
             var v3 = new Vector3(color.R, color.G, color.B);
-            return v3 / 255;
+            return v3 / 255f;
         }
 
         public static Vector3 v3CorrectV3AsClr(Vector3 v3)
@@ -80,11 +122,6 @@ namespace Akg
             return id * dot * kd;
         }
 
-        public static Vector3 v4ToV3(Vector4 v4)
-        {
-            return new Vector3(v4.X, v4.Y, v4.Z);
-        }
-
         public static Vector3 CalcSpecLight(Vector3 normal, Vector3 view, Vector3 lightDir, float Ks, Vector3 Is)
         {
             var reflection = lightDir - 2 * Vector3.Dot(lightDir, normal) * normal;
@@ -107,6 +144,7 @@ namespace Akg
             {
                 //set 0 to normales
                 VertexNormals[i] = Vector3.Zero;
+                Counters[i] = 0;
             }
 
             //calc updates
@@ -138,12 +176,14 @@ namespace Akg
                     //key is for map value of normals total
                     var key = fArr[i][j] - 1;
                     VertexNormals[key] += VPolygonNormals[i];
+                    Counters[key] += 1;
                 }
 
             }
 
             for (int i = 0; i < VertexNormals.Length; i++)
             {
+                //VertexNormals[i] /= Counters[i];
                 VertexNormals[i] = Vector3.Normalize(VertexNormals[i]);
             }
         }
@@ -151,9 +191,6 @@ namespace Akg
         public static void TranslatePositions(Vector4[] vArr, Vector4[] updateVArr, int[][] fArr, Vector4[] modelVArr, float[] ws)
         {
             Matrix4x4 scaleMatrix = Matrix4x4.CreateScale(ScalingCof);
-
-            var matrixes = Camera.GetMatrix4X4s();
-
             for (var i = 0; i < vArr.Length; i++)
             {
                 //scale
@@ -162,17 +199,17 @@ namespace Akg
                 updateVArr[i] = Vector4.Transform(updateVArr[i], WorldMatrix);
                 modelVArr[i] = updateVArr[i];
                 //toView
-                updateVArr[i] = Vector4.Transform(updateVArr[i], matrixes[0]);
+                updateVArr[i] = Vector4.Transform(updateVArr[i], _viewMatrix);
                 //to Projection
-                Vector4 vector = Vector4.Transform(updateVArr[i], matrixes[1]);
+                Vector4 vector = Vector4.Transform(updateVArr[i], _projectionMatrix);
 
                 ws[i] = vector.W;
 
                 vector /= vector.W;
                 updateVArr[i] = vector;
                 //to Viewport
-                var x = (updateVArr[i].X + 1) * Camera.width / 2;
-                var y = (-updateVArr[i].Y + 1) * Camera.height / 2;
+                var x = (updateVArr[i].X + 1) * CameraViewSize.Width / 2;
+                var y = (-updateVArr[i].Y + 1) * CameraViewSize.Height / 2;
 
                 vector = updateVArr[i];
                 vector.X = x;
@@ -183,5 +220,19 @@ namespace Akg
 
         }
 
+        public static void UpdateMatrix()
+        {
+            //up
+            var viewDirection = Vector3.Normalize(Camera - Target);
+
+            var upDirection = Vector3.UnitY;
+            var rightDirection = Vector3.Normalize(Vector3.Cross(upDirection, viewDirection));
+
+            var perpendicular = Vector3.Cross(viewDirection, rightDirection);
+
+            _viewMatrix = Matrix4x4.CreateLookAt(Camera, Target, perpendicular);
+            _projectionMatrix =
+                Matrix4x4.CreatePerspectiveFieldOfView(Angle, CameraView, ZNear, ZFar);
+        }
     }
 }

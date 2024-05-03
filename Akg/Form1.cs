@@ -1,10 +1,9 @@
 using System;
 using System.Diagnostics;
 using System.Drawing;
+using System.Drawing.Drawing2D;
 using System.Drawing.Imaging;
-using System.IO.Compression;
 using System.Numerics;
-using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Windows.Forms;
 using Akg.ValueChanger;
@@ -14,34 +13,22 @@ namespace Akg;
 public partial class Form1 : Form
 {
     private static Size _size;
-    //private static string modelFolder = "D:/Models/Shovel Knight";
-    private static string modelFolder = "D:/Models/Sphere";
+
+    private static string modelFolder = "D:/Models/Intergalactic Spaceship";
+    // private static string modelFolder = "D:/Models/Shovel knight";
+    //private static string modelFolder = "D:/Models/Sphere";
     //private static string modelFolder = "D:/Models/Plane";
 
+    private const string txtEnd = ".jpg ";
+
     private const string modelPref = "/model.obj";
-    private const string diffPref = "/diffuse.png";
+    private const string diffPref = "/diffuse" + txtEnd;
     private const string specPref = "/specular.png";
-    private const string normalsPref = "/normal.png";
-
-    private static string[] skyboxPrefixes = [
-        "",
-        "D:\\Models\\Skybox\\Square\\",
-        "D:\\Models\\Skybox\\ArstaBridge\\",
-        "D:\\Models\\Skybox\\Bridge\\",
-        "D:\\Models\\Skybox\\Bridge2\\",
-        "D:\\Models\\Skybox\\HornstullsStrand\\",
-    ];
-
-    private static string skyboxPrefix = skyboxPrefixes[2];
-
-    private static Bitmap[] cubeTextures = [
-        new Bitmap(skyboxPrefix + "posx.jpg"),
-        new Bitmap(skyboxPrefix + "negx.jpg"),
-        new Bitmap(skyboxPrefix + "posz.jpg"),
-        new Bitmap(skyboxPrefix + "negz.jpg"),
-        new Bitmap(skyboxPrefix + "posy.jpg"),
-        new Bitmap(skyboxPrefix + "negy.jpg"),
-    ];
+    private const string normalsPref = "/normal" + txtEnd;
+    private const string aoPref = "/ao.png";
+    private const string metalnessPref = "/metalness.png";
+    private const string rgPref = "/rg.png";
+    private const string mraoPref = "/mrao" + txtEnd;
 
     private static bool _shouldDraw;
     private static Bitmap _bitmap = new Bitmap(1, 1);
@@ -59,9 +46,18 @@ public partial class Form1 : Form
     private static Vector3[] _vtList = [];
     private static int[][] _fvtList = [];
 
+    private static Vector3[] _vnList = [];
+    private static int[][] _fvnList = [];
+
     private static Bitmap? diffuseMap;
     private static Bitmap? specularMap;
     private static Bitmap? normalMap;
+    private static Bitmap? aoMap;
+    private static Bitmap? metalnessMap;
+    private static Bitmap? rgMap;
+    private static Bitmap? mraoMap;
+
+    private static bool addNormal = false;
 
     ValuesChanger form2;
 
@@ -82,47 +78,169 @@ public partial class Form1 : Form
 
     private static float[][] _zBuffer = new float[2000][];
 
-    private static Vector3 getSight(Vector3 interpolatedNormal)
+    const float PI = 3.14159265359f;
+
+    //a is param for roughness
+    private static float DistributionGGX(Vector3 N, Vector3 H, float roughness)
     {
-        Vector3 clr = new Vector3(0);
-        float x, y, z;
-        x = y = z = 0;
+        float a = roughness * roughness;
+        float a2 = a * a;
+        float NdotH = MathF.Max(Vector3.Dot(N, H), 0.0f);
+        float NdotH2 = NdotH * NdotH;
 
-        // Находим максимальную компоненту нормали
-        float maxX = Math.Abs(interpolatedNormal.X);
-        float maxY = Math.Abs(interpolatedNormal.Y);
-        float maxZ = Math.Abs(interpolatedNormal.Z);
+        float num = a2;
+        float denom = (NdotH2 * (a2 - 1.0f) + 1.0f);
+        denom = PI * denom * denom;
 
-        float maxComponent = Math.Max(maxX, Math.Max(maxY, maxZ));
-
-        // Определяем направление, вдоль которого смотрит нормаль
-        if (maxComponent == maxX)
-        {
-            x += 1;
-            if (interpolatedNormal.X < 0)
-            {
-                x /= 2;
-            }
-        }
-        else if (maxComponent == maxY)
-        {
-            y += 1;
-            if (interpolatedNormal.Y < 0)
-            {
-                y /= 2;
-            }
-        }
-        else
-        {
-            z += 1;
-            if (interpolatedNormal.Z < 0)
-            {
-                z /= 2;
-            }
-        }
-
-        return new Vector3(x, y, z);
+        return num / denom;
     }
+
+    static float geometrySchlickGGX(float NdotV, float roughness)
+    {
+        float r = (roughness + 1.0f);
+        float k = (r * r) / 8.0f;
+        return NdotV / (NdotV * (1.0f - k) + k);
+    }
+
+    static float geometrySmith(Vector3 N, Vector3 V, Vector3 L, float roughness)
+    {
+        return geometrySchlickGGX(MathF.Max(Vector3.Dot(N, L), 0), roughness) *
+               geometrySchlickGGX(MathF.Max(Vector3.Dot(N, V), 0), roughness);
+    }
+
+    static Vector3 fresnelSchlick(float cosTheta, Vector3 F0)
+    {
+        return F0 + (Vector3.One - F0) * MathF.Pow(1.0f - cosTheta, 5.0f);
+    }
+
+    static Vector3 draftMode(Vector3 albedo, Vector3 V, Vector3 L, Vector3 N, float metal, float rg, float ao)
+    {
+        Vector3 F0 = new Vector3(0.04f);
+
+        F0 = Vector3.Lerp(F0, albedo, metal);
+
+        Vector3 Lo = Vector3.Zero;
+
+        Vector3 H = Vector3.Normalize(V + L);
+
+        float distance = L.Length();
+        float attenuation = 1 / (distance * distance);
+        Vector3 radiance = Service.Is * attenuation;
+
+        //cook-torance brdf 
+        float NDF = DistributionGGX(N, H, rg);
+
+        NDF = MathF.Min(MathF.Max(NDF, 0), 1);
+
+        float G = geometrySmith(N, V, L, rg);
+        Vector3 F = fresnelSchlick(
+            MathF.Max(Vector3.Dot(H, V), 0),
+            F0
+        );
+
+        Vector3 kS = F;
+        Vector3 kD = Vector3.One - kS;
+        kD *= 1 - metal;
+
+        Vector3 numerator = NDF * G * F;
+        float denominator = 4 * MathF.Max(Vector3.Dot(N, V), 0) *
+                                MathF.Max(Vector3.Dot(N, L), 0);
+
+        denominator = MathF.Min(denominator, 1);
+
+        Vector3 specular = numerator / MathF.Max(denominator, 0.001f);
+
+        float Ndotl = MathF.Max(Vector3.Dot(N, L), 0);
+        Lo = (kD * albedo / MathF.PI) * radiance * Ndotl;
+
+        Vector3 ambient = albedo * ao * 0.03f;
+        Vector3 color = Lo + ambient;
+
+        color = color / (color + Vector3.One);
+
+        return ValuesChanger.ApplyGamma(color, 1 / 2.2f);
+    }
+
+    static float GGX_Distribution(float cosThetaNH, float alpha)
+    {
+        float alpha2 = alpha * alpha;
+        float NH_sqr = cosThetaNH * cosThetaNH;
+        float den = NH_sqr * (alpha2 - 1) + 1;
+        return alpha2 / (PI * den * den);
+    }
+
+    static float GGX_PartialGeometry(float cosThetaN, float alpha)
+    {
+        float k = alpha / 2;
+        return cosThetaN / (cosThetaN * (1 - k) + k);
+    }
+
+    static Vector3 CookTorrance_GGX(Vector3 n, Vector3 l, Vector3 v, Vector3 albedo, float rg, float metal, float ao, Vector3 F0, Vector3 lightColor)
+    {
+        float distance = l.Length();
+        float attenuation = 1 / (distance * distance);
+        Vector3 radiance = lightColor * attenuation;
+
+        n = Vector3.Normalize(n);
+        v = Vector3.Normalize(v);
+        l = Vector3.Normalize(l);
+        Vector3 h = Vector3.Normalize(v + l);
+        //precompute dots
+        float NL = MathF.Max(Vector3.Dot(n, l), 0);
+        float NV = MathF.Max(Vector3.Dot(n, v), 0);
+        float NH = MathF.Max(Vector3.Dot(n, h), 0);
+        float HV = MathF.Max(Vector3.Dot(h, v), 0);
+
+        //precompute roughness square
+        float roug_sqr = rg * rg;
+
+        //calc coefficients
+        float G = GGX_PartialGeometry(NV, roug_sqr) * GGX_PartialGeometry(NL, roug_sqr);
+        float D = GGX_Distribution(NH, roug_sqr);
+
+        Vector3 F = fresnelSchlick(HV, F0);
+
+        //mix
+        Vector3 specK = 0.25f * G * D * F / NV;
+
+        Vector3 diffK = (Vector3.One - F) * (1 - metal) * albedo / MathF.PI;
+
+        return (diffK * NL + specK) * radiance;
+    }
+
+    static Vector3[] lightPos = [
+        new (3, 3, 3),
+        new (-3, 3, 3),
+        new (3, 3, -3),
+        new (-3, 3, -3),
+    ];
+
+    static Vector3[] lightColor = [
+        new (20, 0, 0),
+        new (0, 20, 0),
+        new (0, 0, 20),
+        new (20)
+    ];
+
+    private static string[] skyboxPrefixes = [
+        "",
+        "D:\\Models\\Skybox\\Square\\",
+        "D:\\Models\\Skybox\\ArstaBridge\\",
+        "D:\\Models\\Skybox\\Bridge\\",
+        "D:\\Models\\Skybox\\Bridge2\\",
+        "D:\\Models\\Skybox\\HornstullsStrand\\",
+    ];
+
+    private static string skyboxPrefix = skyboxPrefixes[1];
+
+    private static Bitmap[] cubeTextures = [
+        new Bitmap(skyboxPrefix + "posx.jpg"),
+        new Bitmap(skyboxPrefix + "negx.jpg"),
+        new Bitmap(skyboxPrefix + "posz.jpg"),
+        new Bitmap(skyboxPrefix + "negz.jpg"),
+        new Bitmap(skyboxPrefix + "posy.jpg"),
+        new Bitmap(skyboxPrefix + "negy.jpg"),
+    ];
 
     private static string getSightS(Vector3 interpolatedNormal)
     {
@@ -259,7 +377,7 @@ public partial class Form1 : Form
         return clr;
     }
 
-    public static unsafe void CubeTextures()
+    public static unsafe void DiffuseRastTriangles()
     {
         BitmapData bData = _bitmap.LockBits(new Rectangle(0, 0, _bitmap.Width, _bitmap.Height),
                  ImageLockMode.ReadWrite, _bitmap.PixelFormat);
@@ -271,30 +389,31 @@ public partial class Form1 : Form
         {
             var temp = _modelVArr[_fArr[j][0] - 1];
             Vector3 n = new Vector3(temp.X, temp.Y, temp.Z);
-            var normalCamView = Vector3.Normalize(Service.Camera.position - n);
+            var normalCamView = Vector3.Normalize(Service.Camera - n);
 
             if (Vector3.Dot(Service.VPolygonNormals[j], normalCamView) > 0)
             {
                 var indexes = _fArr[j];
                 var tIndexes = _fvtList[j];
+                var vnIndexes = _fvnList[j];
 
                 Vector4 f1 = _updateVArr[indexes[0] - 1];
-                Vector3 f1Vt = _vtList[tIndexes[0] - 1] / _ws[indexes[0] - 1];
-                Vector3 n1 = Service.VertexNormals[indexes[0] - 1];
+                Vector3 f1Vt = _vtList[tIndexes[0] - 1];
+                Vector3 n1 = _vnList[vnIndexes[0] - 1];
                 Vector4 f1Mode = _modelVArr[indexes[0] - 1];
 
                 for (var i = 1; i <= indexes.Length - 2; i++)
                 {
                     Vector4 f2 = _updateVArr[indexes[i] - 1];
                     Vector4 f2Model = _modelVArr[indexes[i] - 1];
-                    Vector3 f2Vt = _vtList[tIndexes[i] - 1] / _ws[indexes[i] - 1];
+                    Vector3 f2Vt = _vtList[tIndexes[i] - 1];
 
                     Vector4 f3 = _updateVArr[indexes[i + 1] - 1];
                     Vector4 f3Model = _modelVArr[indexes[i + 1] - 1];
-                    Vector3 f3Vt = _vtList[tIndexes[i + 1] - 1] / _ws[indexes[i + 1] - 1];
+                    Vector3 f3Vt = _vtList[tIndexes[i + 1] - 1];
 
-                    Vector3 n2 = Service.VertexNormals[indexes[i] - 1];
-                    Vector3 n3 = Service.VertexNormals[indexes[i + 1] - 1];
+                    Vector3 n2 = _vnList[vnIndexes[i] - 1]; ;
+                    Vector3 n3 = _vnList[vnIndexes[i + 1] - 1]; ;
 
                     var minX = Math.Min(f1.X, Math.Min(f2.X, f3.X));
                     var maxX = Math.Max(f1.X, Math.Max(f2.X, f3.X));
@@ -313,97 +432,101 @@ public partial class Form1 : Form
                             if (Translations.IsPointInTriangle(x, y, f1, f2, f3))
                             {
                                 Vector3 barycentricCoords =
-                                   Translations.CalculateBarycentricCoordinates(x, y, f1, f2, f3);
+                                    Translations.CalculateBarycentricCoordinates(x, y, f1, f2, f3);
 
                                 var z = barycentricCoords.X * f1.Z + barycentricCoords.Y * f2.Z +
                                         barycentricCoords.Z * f3.Z;
 
-
-                                Vector3 interpolatedNormal = barycentricCoords.X * n1 + barycentricCoords.Y * n2 +
-                                                             barycentricCoords.Z * n3;
-
-                                interpolatedNormal = Vector3.Normalize(interpolatedNormal);
-
-                                Vector4 frag = barycentricCoords.X * f1Mode + barycentricCoords.Y * f2Model +
-                                               barycentricCoords.Z * f3Model;
-
-                                Vector3 fragV3 = new Vector3(frag.X, frag.Y, frag.Z);
-
-                                Vector3 textureCoord = barycentricCoords.X * f1Vt + barycentricCoords.Y * f2Vt +
-                                   barycentricCoords.Z * f3Vt;
-
-                                var lightDir = Vector3.Normalize(Service.LambertLight - fragV3);
-                                var cameraDir = Vector3.Normalize(Service.Camera.position - fragV3);
-
-                                var normal = interpolatedNormal;
-
-                                var reflection = Vector3.Reflect(-cameraDir, interpolatedNormal);
-
-                                var clr = GetColorFromSkybox(reflection);
-
-                                Vector3 Ia = clr;
-                                Vector3 Is = clr;
-
-                                if (diffuseMap != null)
+                                if (x > 0 && x + 1 < _bitmap.Width && y > 0 && y + 1 < _bitmap.Height && _zBuffer[x][y] > z)
                                 {
-                                    textureCoord.X *= diffuseMap.Width;
-                                    textureCoord.Y *= diffuseMap.Height;
 
-                                    textureCoord /= textureCoord.Z;
+                                    Vector3 interpolatedNormal = barycentricCoords.X * n1 + barycentricCoords.Y * n2 +
+                                                                 barycentricCoords.Z * n3;
 
-                                    int u = Math.Max(0, Math.Min((int)textureCoord.X, diffuseMap.Height - 1)); // ??????????????????????????? ?????????????????????????????? U ?????? textureCoord
-                                    int v = Math.Max(0, Math.Min(diffuseMap.Width - (int)textureCoord.Y, diffuseMap.Width - 1)); // ??????????????????????????? ?????????????????????????????? V ?????? textureCoord
+                                    interpolatedNormal = Vector3.Normalize(interpolatedNormal);
 
-                                    Ia = Service.clrToV3(diffuseMap.GetPixel(u, v));
+                                    Vector4 frag = barycentricCoords.X * f1Mode + barycentricCoords.Y * f2Model +
+                                                   barycentricCoords.Z * f3Model;
 
+                                    Vector3 fragV3 = new Vector3(frag.X, frag.Y, frag.Z);
 
-                                    if (specularMap != null)
+                                    Vector3 textureCoord = barycentricCoords.X * f1Vt + barycentricCoords.Y * f2Vt +
+                                       barycentricCoords.Z * f3Vt;
+
+                                    var V = Vector3.Normalize(Service.Camera - fragV3);
+
+                                    var N = interpolatedNormal;
+
+                                    float metal = Service.Ka;
+                                    float rg = Service.Kd;
+
+                                    float ao = 1f;
+
+                                    var albedo = Service.SelectedColor;
+
+                                    Vector3 color = Vector3.Zero;
+
+                                    if (diffuseMap != null)
                                     {
-                                        //specular
-                                        Is = Service.clrToV3(specularMap.GetPixel(u, v));
+                                        textureCoord.X *= diffuseMap.Width;
+                                        textureCoord.Y *= diffuseMap.Height;
+
+                                        int u = Math.Max(0, Math.Min((int)textureCoord.X, diffuseMap.Height - 1)); // ��������� ���������� U �� textureCoord
+                                        int v = Math.Max(0, Math.Min(diffuseMap.Width - (int)textureCoord.Y, diffuseMap.Width - 1)); // ��������� ���������� V �� textureCoord
+
+                                        albedo = Service.clrToV3(diffuseMap.GetPixel(u, v));
+                                        albedo = Service.SrgbToLinear(albedo);
+
+                                        if (mraoMap != null && addNormal)
+                                        {
+                                            metal = mraoMap.GetPixel(u, v).R / 255f;
+                                            rg = mraoMap.GetPixel(u, v).G / 255f;
+                                            ao = mraoMap.GetPixel(u, v).B / 255f;
+                                        }
+
+
+                                        if (normalMap != null)
+                                        {
+                                            //normal
+                                            N = Service.clrToV3(normalMap.GetPixel(u, v)) * 2 - Vector3.One;
+
+                                            var rotX = Matrix4x4.CreateRotationX(angels.X);
+                                            var rotY = Matrix4x4.CreateRotationY(angels.Y);
+                                            var rotZ = Matrix4x4.CreateRotationZ(angels.Z);
+
+                                            N = Vector3.Transform(N, rotX);
+                                            N = Vector3.Transform(N, rotY);
+                                            N = Vector3.Transform(N, rotZ);
+                                        }
                                     }
 
-                                    if (normalMap != null)
+                                    Vector3 F0 = Vector3.Lerp(new Vector3(0.04f), albedo, metal);
+
+                                    // var reflection = Vector3.Reflect(-V, N);
+
+                                    // var clr = GetColorFromSkybox(reflection) * Service.Is.X;
+                                    // clr = Service.SrgbToLinear(clr);
+
+                                    for (int k = 0; k < 4; k++)
                                     {
-                                        //normal
-                                        Color normalColor = normalMap.GetPixel(u, v);
-                                        float r = normalColor.R / 255f;  // ?????????????????????????????? R (?????????????????????)
-                                        float g = normalColor.G / 255f;  // ?????????????????????????????? G (?????????????????????)
-                                        float b = normalColor.B / 255f;  // ?????????????????????????????? B (???????????????)
-                                        normal = new Vector3(
-                                            (r * 2f) - 1f,  // ?????????????????????????????? X
-                                            (g * 2f) - 1f,  // ?????????????????????????????? Y
-                                            (b * 2f) - 1f   // ?????????????????????????????? Z
-                                            );
+                                        
+                                        //var L = Service.Camera - fragV3;
+                                        //color += CookTorrance_GGX(N, L, V, albedo, rg, metal, ao, F0, clr);
 
-                                        var rotX = Matrix4x4.CreateRotationX(angels.X);
-                                        var rotY = Matrix4x4.CreateRotationY(angels.Y);
-                                        var rotZ = Matrix4x4.CreateRotationZ(angels.Z);
+                                        var L = lightPos[k] - fragV3;
+                                        color += CookTorrance_GGX(N, L, V, albedo, rg, metal, ao, F0, lightColor[k]);
 
-                                        normal = Vector3.Transform(normal, rotX);
-                                        normal = Vector3.Transform(normal, rotY);
-                                        normal = Vector3.Transform(normal, rotZ);
                                     }
 
+                                    color += 0.05f * albedo * ao;
+
+                                    color = Service.AcesFilmic(color);
+
+                                    color = Service.LinearToSrgb(color);
+
+                                    Drawing.DrawSimplePoint(bData, bitsPerPixel, scan0, color * 255, x, y, z,
+                                        _bitmap.Width, _bitmap.Height, _zBuffer);
                                 }
-
-                                Ia = ValuesChanger.ApplyGamma(Ia, 2.2f);
-                                Is = ValuesChanger.ApplyGamma(Is, 2.2f);
-
-                                var phongBg = Service.CalcPhongBg(Service.Ka, Service.multiplyClrs(Service.Ia, Ia));
-                                var diffuse = Service.CalcDiffuseLight(normal, lightDir, Service.multiplyClrs(clr, Ia), Service.Kd);
-                                var spec = Service.CalcSpecLight(normal, cameraDir, lightDir, Service.Ks, Service.multiplyClrs(clr, Is));
-
-                                var phongClr = phongBg + diffuse + spec;
-
-                                phongClr.X = phongClr.X > 1 ? 1 : phongClr.X;
-                                phongClr.Y = phongClr.Y > 1 ? 1 : phongClr.Y;
-                                phongClr.Z = phongClr.Z > 1 ? 1 : phongClr.Z;
-
-                                phongClr = ValuesChanger.ApplyGamma(phongClr, 0.454545f);
-
-                                Drawing.DrawSimplePoint(bData, bitsPerPixel, scan0, phongClr * 255, x, y, z,
-                                    _bitmap.Width, _bitmap.Height, _zBuffer);
 
                             }
                         }
@@ -416,14 +539,7 @@ public partial class Form1 : Form
         _bitmap.UnlockBits(bData);
     }
 
-    private static void StretchImage(Bitmap sourceImage, ref Bitmap destinationImage)
-    {
-        using (Graphics g = Graphics.FromImage(destinationImage))
-        {
-            g.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
-            g.DrawImage(sourceImage, 0, 0, destinationImage.Width, destinationImage.Height);
-        }
-    }
+
 
     private static unsafe void DrawPoints()
     {
@@ -444,9 +560,6 @@ public partial class Form1 : Form
             case 4:
                 DiffuseRastTriangles();
                 break;
-            case 5:
-                CubeTextures();
-                break;
             default:
                 Drawing.DrawingFullGrid(_bitmap, Service.SelectedColor, _fArr, _updateVArr,
                     _bitmap.Width, _bitmap.Height, _zBuffer);
@@ -457,8 +570,8 @@ public partial class Form1 : Form
 
     private static void VertexesUpdate()
     {
+        Service.UpdateMatrix();
         Service.TranslatePositions(_vArr, _updateVArr, _fArr, _modelVArr, _ws);
-
         CleanZBuffer();
         DrawPoints();
     }
@@ -476,11 +589,8 @@ public partial class Form1 : Form
 
     private static void MakeResizing(Form1 form1)
     {
-        _size = form1.ClientSize;
-
-        Service.Camera.width = _size.Width;
-        Service.Camera.height = _size.Height;
-        
+        Service.CameraViewSize = _size = form1.ClientSize;
+        Service.CameraView = Service.CameraViewSize.Width / (float)Service.CameraViewSize.Height;
         form1.lbHeight.Text = _size.Height.ToString();
         form1.lbWidth.Text = _size.Width.ToString();
         form1.pictureBox1.Size = _size;
@@ -508,8 +618,8 @@ public partial class Form1 : Form
             string _modelPath = fdOpenModel.FileName;
             if (File.Exists(_modelPath))
             {
-                string? folder = Path.GetDirectoryName(_modelPath);
-                modelFolder = folder != null ? folder : "D:/";
+                string folder = Path.GetDirectoryName(_modelPath);
+                modelFolder = folder;
                 model_loading();
                 pictureBox1.Invalidate();
             }
@@ -551,23 +661,26 @@ public partial class Form1 : Form
 
                 switch (e.KeyCode)
                 {
+                    case Keys.N:
+                        addNormal = !addNormal;
+                        break;
                     case Keys.Left:
-                        Service.Camera.position = Vector3.Transform(Service.Camera.position, Matrix4x4.CreateRotationY(-angel));
+                        Service.Camera = Vector3.Transform(Service.Camera, Matrix4x4.CreateRotationY(-angel));
                         break;
                     case Keys.Right:
-                        Service.Camera.position = Vector3.Transform(Service.Camera.position, Matrix4x4.CreateRotationY(angel));
+                        Service.Camera = Vector3.Transform(Service.Camera, Matrix4x4.CreateRotationY(angel));
                         break;
                     case Keys.Down:
-                        Service.Camera.position = Vector3.Transform(Service.Camera.position, Matrix4x4.CreateRotationX(angel));
+                        Service.Camera = Vector3.Transform(Service.Camera, Matrix4x4.CreateRotationX(angel));
                         break;
                     case Keys.Up:
-                        Service.Camera.position = Vector3.Transform(Service.Camera.position, Matrix4x4.CreateRotationX(-angel));
+                        Service.Camera = Vector3.Transform(Service.Camera, Matrix4x4.CreateRotationX(-angel));
                         break;
                     case Keys.A:
-                        Service.Camera.position = Vector3.Transform(Service.Camera.position, Matrix4x4.CreateRotationZ(angel));
+                        Service.Camera = Vector3.Transform(Service.Camera, Matrix4x4.CreateRotationZ(angel));
                         break;
                     case Keys.D:
-                        Service.Camera.position = Vector3.Transform(Service.Camera.position, Matrix4x4.CreateRotationZ(-angel));
+                        Service.Camera = Vector3.Transform(Service.Camera, Matrix4x4.CreateRotationZ(-angel));
                         break;
                     case Keys.S:
                         using (SaveFileDialog saveFileDialog = new SaveFileDialog())
@@ -588,30 +701,48 @@ public partial class Form1 : Form
                 }
 
 
-                form2.tbCamX.Text = Service.Camera.position.X.ToString("F1", culture);
-                form2.tbCamY.Text = Service.Camera.position.Y.ToString("F1", culture);
-                form2.tbCamZ.Text = Service.Camera.position.Z.ToString("F1", culture);
+                form2.tbCamX.Text = Service.Camera.X.ToString("F1", culture);
+                form2.tbCamY.Text = Service.Camera.Y.ToString("F1", culture);
+                form2.tbCamZ.Text = Service.Camera.Z.ToString("F1", culture);
             }
             else if (e.Shift)
             {
                 switch (e.KeyCode)
                 {
                     case Keys.Left:
-                        Service.Camera.target += new Vector3(0.1f, 0, 0);
+                        Service.Target.X += 0.1f;
                         break;
                     case Keys.Right:
-                        Service.Camera.target -= new Vector3(0.1f, 0, 0);
+                        Service.Target.X -= 0.1f;
                         break;
                     case Keys.Down:
-                        Service.Camera.target += new Vector3(0, 0.1f, 0);
+                        Service.Target.Y += 0.1f;
                         break;
                     case Keys.Up:
-                        Service.Camera.target -= new Vector3(0, 0.1f, 0);
+                        Service.Target.Y -= 0.1f;
                         break;
                 }
-                form2.tbTrgX.Text = Service.Camera.target.X.ToString("F1", culture);
-                form2.tbTrgY.Text = Service.Camera.target.Y.ToString("F1", culture);
-                form2.tbTrgZ.Text = Service.Camera.target.Z.ToString("F1", culture);
+                form2.tbTrgX.Text = Service.Target.X.ToString("F1", culture);
+                form2.tbTrgY.Text = Service.Target.Y.ToString("F1", culture);
+                form2.tbTrgZ.Text = Service.Target.Z.ToString("F1", culture);
+            }
+            else if (e.Alt)
+            {
+                switch (e.KeyCode)
+                {
+                    case Keys.Left:
+                        for (int i = 0; i < 4; i++)
+                        {
+                            lightPos[i] = Vector3.Transform(lightPos[i], Matrix4x4.CreateRotationY(-MathF.PI / 180 * Service.Alpha));
+                        }
+                        break;
+                    case Keys.Right:
+                        for (int i = 0; i < 4; i++)
+                        {
+                            lightPos[i] = Vector3.Transform(lightPos[i], Matrix4x4.CreateRotationY(MathF.PI / 180 * Service.Alpha));
+                        }
+                        break;
+                }
             }
             else
             {
@@ -620,32 +751,32 @@ public partial class Form1 : Form
                 {
                     case Keys.Down:
                         angels.X += angel;
-                        Translations.Transform(_vArr, Matrix4x4.CreateRotationX(angel), Service.VertexNormals,
+                        Translations.Transform(_vArr, Matrix4x4.CreateRotationX(angel), _vnList,
                             Service.VPolygonNormals);
                         break;
                     case Keys.Up:
                         angels.X -= angel;
-                        Translations.Transform(_vArr, Matrix4x4.CreateRotationX(-angel), Service.VertexNormals,
+                        Translations.Transform(_vArr, Matrix4x4.CreateRotationX(-angel), _vnList,
                             Service.VPolygonNormals);
                         break;
                     case Keys.Right:
                         angels.Y += angel;
-                        Translations.Transform(_vArr, Matrix4x4.CreateRotationY(angel), Service.VertexNormals,
+                        Translations.Transform(_vArr, Matrix4x4.CreateRotationY(angel), _vnList,
                             Service.VPolygonNormals);
                         break;
                     case Keys.Left:
                         angels.Y -= angel;
-                        Translations.Transform(_vArr, Matrix4x4.CreateRotationY(-angel), Service.VertexNormals,
+                        Translations.Transform(_vArr, Matrix4x4.CreateRotationY(-angel), _vnList,
                             Service.VPolygonNormals);
                         break;
                     case Keys.A:
                         angels.Z += angel;
-                        Translations.Transform(_vArr, Matrix4x4.CreateRotationZ(angel), Service.VertexNormals,
+                        Translations.Transform(_vArr, Matrix4x4.CreateRotationZ(angel), _vnList,
                             Service.VPolygonNormals);
                         break;
                     case Keys.D:
                         angels.Z -= angel;
-                        Translations.Transform(_vArr, Matrix4x4.CreateRotationZ(-angel), Service.VertexNormals,
+                        Translations.Transform(_vArr, Matrix4x4.CreateRotationZ(-angel), _vnList,
                             Service.VPolygonNormals);
                         break;
                 }
@@ -682,9 +813,11 @@ public partial class Form1 : Form
     {
         _shouldDraw = true;
         ObjParser parser = new ObjParser(modelFolder + modelPref);
+        Service.UpdateMatrix();
 
         _vArr = parser.VList.ToArray();
         _vtList = parser.VTList.ToArray();
+        _vnList = parser.VNList.ToArray();
 
         _updateVArr = new Vector4[_vArr.Length];
 
@@ -694,176 +827,26 @@ public partial class Form1 : Form
 
         _fArr = new int[parser.FList.Count][];
         _fvtList = new int[parser.FVTList.Count][];
+        _fvnList = new int[parser.FVNList.Count][];
 
         Service.VPolygonNormals = new Vector3[_fArr.Length];
         Service.VertexNormals = new Vector3[_vArr.Length];
+        Service.Counters = new int[_vArr.Length];
 
         for (var i = 0; i < parser.FList.Count; i++)
         {
             _fArr[i] = parser.FList[i].ToArray();
             _fvtList[i] = parser.FVTList[i].ToArray();
+            _fvnList[i] = parser.FVNList[i].ToArray();
         }
 
+        Service.UpdateMatrix();
         Service.TranslatePositions(_vArr, _updateVArr, _fArr, _modelVArr, _ws);
         Service.CalcStuff(_fArr, _modelVArr);
 
         loadTextures();
 
         wasUpdate = true;
-    }
-
-    public static unsafe void DiffuseRastTriangles()
-    {
-        BitmapData bData = _bitmap.LockBits(new Rectangle(0, 0, _bitmap.Width, _bitmap.Height),
-                 ImageLockMode.ReadWrite, _bitmap.PixelFormat);
-        var bitsPerPixel = (byte)Image.GetPixelFormatSize(bData.PixelFormat);
-        var scan0 = (byte*)bData.Scan0;
-
-
-        for (int j = 0; j < _fArr.Length; j++)
-        {
-            var temp = _modelVArr[_fArr[j][0] - 1];
-            Vector3 n = new Vector3(temp.X, temp.Y, temp.Z);
-            var normalCamView = Vector3.Normalize(Service.Camera.position - n);
-
-            if (Vector3.Dot(Service.VPolygonNormals[j], normalCamView) > 0)
-            {
-                var indexes = _fArr[j];
-                var tIndexes = _fvtList[j];
-
-                Vector4 f1 = _updateVArr[indexes[0] - 1];
-                Vector3 f1Vt = _vtList[tIndexes[0] - 1] / _ws[indexes[0] - 1];
-                Vector3 n1 = Service.VertexNormals[indexes[0] - 1];
-                Vector4 f1Mode = _modelVArr[indexes[0] - 1];
-
-                for (var i = 1; i <= indexes.Length - 2; i++)
-                {
-                    Vector4 f2 = _updateVArr[indexes[i] - 1];
-                    Vector4 f2Model = _modelVArr[indexes[i] - 1];
-                    Vector3 f2Vt = _vtList[tIndexes[i] - 1] / _ws[indexes[i] - 1];
-
-                    Vector4 f3 = _updateVArr[indexes[i + 1] - 1];
-                    Vector4 f3Model = _modelVArr[indexes[i + 1] - 1];
-                    Vector3 f3Vt = _vtList[tIndexes[i + 1] - 1] / _ws[indexes[i + 1] - 1];
-
-                    Vector3 n2 = Service.VertexNormals[indexes[i] - 1];
-                    Vector3 n3 = Service.VertexNormals[indexes[i + 1] - 1];
-
-                    var minX = Math.Min(f1.X, Math.Min(f2.X, f3.X));
-                    var maxX = Math.Max(f1.X, Math.Max(f2.X, f3.X));
-                    var minY = Math.Min(f1.Y, Math.Min(f2.Y, f3.Y));
-                    var maxY = Math.Max(f1.Y, Math.Max(f2.Y, f3.Y));
-
-                    var startX = (int)Math.Ceiling(minX);
-                    var endX = (int)Math.Floor(maxX);
-                    var startY = (int)Math.Ceiling(minY);
-                    var endY = (int)Math.Floor(maxY);
-
-                    for (var y = startY; y <= endY; y++)
-                    {
-                        for (var x = startX; x <= endX; x++)
-                        {
-                            if (Translations.IsPointInTriangle(x, y, f1, f2, f3))
-                            {
-                                Vector3 barycentricCoords =
-                                    Translations.CalculateBarycentricCoordinates(x, y, f1, f2, f3);
-
-                                var z = barycentricCoords.X * f1.Z + barycentricCoords.Y * f2.Z +
-                                        barycentricCoords.Z * f3.Z;
-
-
-                                Vector3 interpolatedNormal = barycentricCoords.X * n1 + barycentricCoords.Y * n2 +
-                                                             barycentricCoords.Z * n3;
-
-                                interpolatedNormal = Vector3.Normalize(interpolatedNormal);
-
-                                Vector4 frag = barycentricCoords.X * f1Mode + barycentricCoords.Y * f2Model +
-                                               barycentricCoords.Z * f3Model;
-
-                                Vector3 fragV3 = new Vector3(frag.X, frag.Y, frag.Z);
-
-                                Vector3 textureCoord = barycentricCoords.X * f1Vt + barycentricCoords.Y * f2Vt +
-                                   barycentricCoords.Z * f3Vt;
-
-                                var lightDir = Vector3.Normalize(Service.LambertLight - fragV3);
-                                var cameraDir = Vector3.Normalize(Service.Camera.position - fragV3);
-
-                                var normal = interpolatedNormal;
-
-                                Vector3 Ia = new Vector3();
-                                Vector3 Is = new Vector3();
-
-                                if (diffuseMap != null)
-                                {
-                                    textureCoord.X *= diffuseMap.Width;
-                                    textureCoord.Y *= diffuseMap.Height;
-
-                                    textureCoord /= textureCoord.Z;
-
-                                    int u = Math.Max(0, Math.Min((int)textureCoord.X, diffuseMap.Height - 1)); // ??????????????????????????? ?????????????????????????????? U ?????? textureCoord
-                                    int v = Math.Max(0, Math.Min(diffuseMap.Width - (int)textureCoord.Y, diffuseMap.Width - 1)); // ??????????????????????????? ?????????????????????????????? V ?????? textureCoord
-
-                                    Ia = Service.clrToV3(diffuseMap.GetPixel(u, v));
-
-
-                                    if (specularMap != null)
-                                    {
-                                        //specular
-                                        Is = Service.clrToV3(specularMap.GetPixel(u, v));
-                                    }
-
-                                    if (normalMap != null)
-                                    {
-                                        //normal
-                                        Color normalColor = normalMap.GetPixel(u, v);
-                                        float r = normalColor.R / 255f;  // ?????????????????????????????? R (?????????????????????)
-                                        float g = normalColor.G / 255f;  // ?????????????????????????????? G (?????????????????????)
-                                        float b = normalColor.B / 255f;  // ?????????????????????????????? B (???????????????)
-                                        normal = new Vector3(
-                                            (r * 2f) - 1f,  // ?????????????????????????????? X
-                                            (g * 2f) - 1f,  // ?????????????????????????????? Y
-                                            (b * 2f) - 1f   // ?????????????????????????????? Z
-                                            );
-
-                                        var rotX = Matrix4x4.CreateRotationX(angels.X);
-                                        var rotY = Matrix4x4.CreateRotationY(angels.Y);
-                                        var rotZ = Matrix4x4.CreateRotationZ(angels.Z);
-
-                                        normal = Vector3.Transform(normal, rotX);
-                                        normal = Vector3.Transform(normal, rotY);
-                                        normal = Vector3.Transform(normal, rotZ);
-                                    }
-
-                                }
-
-                                Ia = ValuesChanger.ApplyGamma(Ia, 2.2f);
-                                Is = ValuesChanger.ApplyGamma(Is, 2.2f);
-
-
-                                var phongBg = Service.CalcPhongBg(Service.Ka, Service.multiplyClrs(Service.Ia, Ia));
-                                var diffuse = Service.CalcDiffuseLight(normal, lightDir, Service.multiplyClrs(Service.Id, Ia), Service.Kd);
-                                var spec = Service.CalcSpecLight(normal, cameraDir, lightDir, Service.Ks, Service.multiplyClrs(Service.Is, Is));
-
-                                var phongClr = phongBg + diffuse + spec;
-
-                                phongClr.X = phongClr.X > 1 ? 1 : phongClr.X;
-                                phongClr.Y = phongClr.Y > 1 ? 1 : phongClr.Y;
-                                phongClr.Z = phongClr.Z > 1 ? 1 : phongClr.Z;
-
-                                phongClr = ValuesChanger.ApplyGamma(phongClr, 0.454545f);
-
-                                Drawing.DrawSimplePoint(bData, bitsPerPixel, scan0, phongClr * 255, x, y, z,
-                                    _bitmap.Width, _bitmap.Height, _zBuffer);
-
-                            }
-                        }
-                    }
-                }
-
-            }
-        }
-
-        _bitmap.UnlockBits(bData);
     }
 
     private void loadTextures()
@@ -873,10 +856,19 @@ public partial class Form1 : Form
         specularMap = null;
         normalMap?.Dispose();
         normalMap = null;
+        aoMap?.Dispose();
+        aoMap = null;
+        metalnessMap?.Dispose();
+        metalnessMap = null;
 
         string diffuse = modelFolder + diffPref;
         string norms = modelFolder + normalsPref;
         string spec = modelFolder + specPref;
+        string ao = modelFolder + aoPref;
+        string metalness = modelFolder + metalnessPref;
+        string rg = modelFolder + rgPref;
+        string mrao = modelFolder + mraoPref;
+
         if (File.Exists(diffuse))
         {
             diffuseMap = new Bitmap(diffuse);
@@ -888,6 +880,22 @@ public partial class Form1 : Form
         if (File.Exists(spec))
         {
             specularMap = new Bitmap(spec);
+        }
+        if (File.Exists(ao))
+        {
+            aoMap = new Bitmap(ao);
+        }
+        if (File.Exists(metalness))
+        {
+            metalnessMap = new Bitmap(metalness);
+        }
+        if (File.Exists(rg))
+        {
+            rgMap = new Bitmap(rg);
+        }
+        if (File.Exists(mrao))
+        {
+            mraoMap = new Bitmap(mrao);
         }
     }
 

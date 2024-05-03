@@ -69,8 +69,6 @@ namespace Akg.ValueChanger
             tbTrgZ = new TextBox();
             tbTrgX = new TextBox();
             radioButton4 = new RadioButton();
-            radioButton5 = new RadioButton();
-            radioButton6 = new RadioButton();
             SuspendLayout();
             // 
             // lbBgColor
@@ -130,7 +128,7 @@ namespace Akg.ValueChanger
             lbKa.Name = "lbKa";
             lbKa.Size = new Size(201, 29);
             lbKa.TabIndex = 5;
-            lbKa.Text = "Коэ фонового освещения";
+            lbKa.Text = "Металичность";
             lbKa.TextAlign = ContentAlignment.MiddleCenter;
             // 
             // lbKd
@@ -140,7 +138,7 @@ namespace Akg.ValueChanger
             lbKd.Name = "lbKd";
             lbKd.Size = new Size(201, 29);
             lbKd.TabIndex = 6;
-            lbKd.Text = "Коэ рассеянного освещения";
+            lbKd.Text = "Шероховатость";
             lbKd.TextAlign = ContentAlignment.MiddleCenter;
             // 
             // lbKs
@@ -165,7 +163,7 @@ namespace Akg.ValueChanger
             // 
             // button1
             // 
-            button1.Location = new Point(84, 623);
+            button1.Location = new Point(87, 612);
             button1.Margin = new Padding(3, 4, 3, 4);
             button1.Name = "button1";
             button1.Size = new Size(160, 40);
@@ -394,28 +392,6 @@ namespace Akg.ValueChanger
             radioButton4.UseVisualStyleBackColor = true;
             radioButton4.CheckedChanged += radioButton4_CheckedChanged;
             // 
-            // radioButton5
-            // 
-            radioButton5.Location = new Point(131, 547);
-            radioButton5.Margin = new Padding(3, 4, 3, 4);
-            radioButton5.Name = "radioButton5";
-            radioButton5.Size = new Size(210, 30);
-            radioButton5.TabIndex = 46;
-            radioButton5.Text = "Кубические текстуры";
-            radioButton5.UseVisualStyleBackColor = true;
-            radioButton5.CheckedChanged += radioButton5_CheckedChanged;
-            // 
-            // radioButton6
-            // 
-            radioButton6.Location = new Point(12, 585);
-            radioButton6.Margin = new Padding(3, 4, 3, 4);
-            radioButton6.Name = "radioButton6";
-            radioButton6.Size = new Size(237, 30);
-            radioButton6.TabIndex = 47;
-            radioButton6.Text = "Кубические текстуры + Фонга";
-            radioButton6.UseVisualStyleBackColor = true;
-            radioButton6.CheckedChanged += radioButton6_CheckedChanged;
-            // 
             // ValuesChanger
             // 
             AutoScaleDimensions = new SizeF(8F, 20F);
@@ -423,8 +399,6 @@ namespace Akg.ValueChanger
             AutoSize = true;
             AutoSizeMode = AutoSizeMode.GrowAndShrink;
             ClientSize = new Size(383, 676);
-            Controls.Add(radioButton6);
-            Controls.Add(radioButton5);
             Controls.Add(radioButton4);
             Controls.Add(tbTrgY);
             Controls.Add(tbTrgZ);
@@ -514,7 +488,5 @@ namespace Akg.ValueChanger
         public TextBox tbTrgZ;
         public TextBox tbTrgX;
         private RadioButton radioButton4;
-        private RadioButton radioButton5;
-        private RadioButton radioButton6;
     }
 }

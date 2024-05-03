@@ -7,9 +7,11 @@ namespace Akg
     {
         public List<List<int>> FList = new List<List<int>>();
         public List<List<int>> FVTList = new List<List<int>>();
+        public List<List<int>> FVNList = new List<List<int>>();
         public List<Vector4> VList = new List<Vector4>();
         public List<Vector3> VTList = new List<Vector3>();
-        
+        public List<Vector3> VNList = new List<Vector3>();
+
 
         public ObjParser(string path)
         {
@@ -44,28 +46,40 @@ namespace Akg
 
                             VList.Add(v3);
                         }
-                        else if (line.StartsWith("vt ")  && line.Length > 7)
+                        else if (line.StartsWith("vt ") && line.Length > 7)
                         {
                             var parts = line.Split(space, StringSplitOptions.RemoveEmptyEntries);
                             Vector3 v2 = new Vector3(
                                 float.Parse(parts[1], CultureInfo.InvariantCulture),
-                                float.Parse(parts[2], CultureInfo.InvariantCulture), 
+                                float.Parse(parts[2], CultureInfo.InvariantCulture),
                                 1.0f);
                             VTList.Add(v2);
+                        }
+                        else if (line.StartsWith("vn ") && line.Length > 7)
+                        {
+                            var parts = line.Split(space, StringSplitOptions.RemoveEmptyEntries);
+                            Vector3 v3 = new Vector3(
+                                float.Parse(parts[1], CultureInfo.InvariantCulture),
+                                float.Parse(parts[2], CultureInfo.InvariantCulture),
+                                float.Parse(parts[3], CultureInfo.InvariantCulture));
+                            VNList.Add(v3);
                         }
                         else if (line[0] == 'f' && line[1] == ' ' && line.Length > 7)
                         {
                             var v = new List<int>();
                             var vt = new List<int>();
+                            var vn = new List<int>();
                             var parts = line.Split(space, StringSplitOptions.RemoveEmptyEntries);
                             for (var i = 1; i < parts.Length; i++)
                             {
                                 var lparts = parts[i].Split(slash, StringSplitOptions.RemoveEmptyEntries);
                                 v.Add(int.Parse(lparts[0], CultureInfo.InvariantCulture));
                                 vt.Add(int.Parse(lparts[1], CultureInfo.InvariantCulture));
+                                vn.Add(int.Parse(lparts[2], CultureInfo.InvariantCulture));
                             }
                             FList.Add(v);
                             FVTList.Add(vt);
+                            FVNList.Add(vn);
                         }
                     }
                 }
